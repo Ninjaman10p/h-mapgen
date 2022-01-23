@@ -1,0 +1,22 @@
+{
+  "name": "h-mapgen",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ninjaman10p/h-mapgen.git"
+  },
+  "author": "Peter Gow",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Ninjaman10p/h-mapgen/issues"
+  },
+  "homepage": "https://github.com/Ninjaman10p/h-mapgen#readme",
+  "dependencies": {
+    "typescript": "^4.5.5"
+  }
+}
