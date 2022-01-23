@@ -39,9 +39,9 @@ function main(): void {
     , foreground: "green"
     , background: "grey"
     , grid:
-      { "0-0": { down: false, right: true }
-      , "0-1": { down: false, right: false }
-      , "1-0": { down: false, right: false }
+      { "0-0": { down: true, right: true }
+      , "0-1": { down: false, right: true }
+      , "1-0": { down: true, right: false }
       , "1-1": { down: false, right: false }
       }
     })
@@ -52,6 +52,8 @@ main();
 function drawGrid(ctx: renderer, a: Area) {
   if (ctx == null) return;
   const prevFill = ctx.fillStyle
+  ctx.translate(-a.pos.x, -a.pos.y)
+  const fullSq = { down: true, right: true }
   for(const key in a.grid) {
     const sqr = a.grid[key]
     const pos = toPos(key)
@@ -60,15 +62,20 @@ function drawGrid(ctx: renderer, a: Area) {
     const yPos = pos.y * (a.height + a.gap)
     for (const cx of [true, false])
       for (const cy of [true, false]) {
-         ctx.fillStyle = (cx || sqr.right) && (cy || sqr.down) ? a.foreground : a.background
+         let fill = (cx || sqr.right) && (cy || sqr.down)
+         if (!cx && !cy)
+           fill &&= (a.grid[fromPos({x: pos.x + 1, y: pos.y})] ?? fullSq).down
+                &&  (a.grid[fromPos({x: pos.x, y: pos.y + 1})] ?? fullSq).right
+         ctx.fillStyle = fill ? a.foreground : a.background
          ctx.fillRect
            ( xPos + (cx ? 0 : a.width)
            , yPos + (cy ? 0 : a.height)
            , cx ? a.height : a.gap
            , cy ? a.height : a.gap
            )
-      }
+      } 
   }
+  ctx.translate(a.pos.x, a.pos.y)
   ctx.fillStyle = prevFill
 }
 
