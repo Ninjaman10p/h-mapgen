@@ -26,6 +26,7 @@ interface PathPos
 
 interface AreaParameters
   { prob: number
+  , maxg: number
   }
 
 interface GridTile
@@ -48,6 +49,7 @@ const active: Area =
   , grid: { }
   , gen:
     { prob: 20
+    , maxg: 5
     }
   }
 
@@ -157,24 +159,81 @@ function refreshActive(): void {
   active.grid = grid
 }
 
+// IO
+function insPath(p: PathPos, area: Area, pathGroups: Array<Array<PathPos>>): void {
+  const t = area.grid[fromPos(p.pos)]
+  if(t == undefined)
+    return
+  if(p.down)
+    t.down = true
+  else
+    t.right = true
+  updatePathGroups(p, pathGroups)
+}
+
 function genPathGroups(area: Area): Array<Array<PathPos>> {
   const paths = getAllPaths(area)
+  const pathGroups: Array<Array<PathPos>> = []
+  while(paths.length > 0) {
+    const test = paths.pop();
+    if (test == undefined)
+      continue;
+    updatePathGroups(test, pathGroups);
+  }
+  return pathGroups
+}
+
+// Mutating
+function updatePathGroups(path: PathPos, pathGroups: Array<Array<PathPos>>): void {
+  const included: Array<number> = []
+  for(let g = 0; g < pathGroups.length; g++)
+    for(const p of pathGroups[g])
+      if(pathAdj(path, p)) {
+        included.push(g)
+        break;
+      }
+  while(included.length > 1) {
+    const rem = included.pop()
+    if(rem == undefined)
+      continue;
+    for(let i = 0; i < included.length; i++)
+      if(included[i] > rem)
+        included[i]--;
+    const moving = pathGroups.splice(rem, 1)[0]
+    for(const p of moving)
+      pathGroups[included[0]].push(p) 
+  }
+  if(included.length == 1) {
+    pathGroups[included[0]].push(path)
+  } else {
+    pathGroups.push([path])
+  }
+}
+
+function pathAdj(a: PathPos, b: PathPos) {
+  const xDiff = b.pos.x - a.pos.x
+  const yDiff = b.pos.y - a.pos.y
+  const tang = a.down ? xDiff : yDiff
+  const norm =  a.down ? yDiff : xDiff
+  if(b.down == a.down)
+    return (Math.abs(tang) <= 1) && (norm == 0)
+  else
+    return (-1 <= tang && tang <= 0) && (0 <= norm && norm <= 1)
 }
 
 function getAllPaths(area: Area): Array<PathPos> {
-  return toList(area.grid)
-    .flatMap((sqr: [string, GridTile]) => {
-      const pos = toPos(sqr[0])
-      if (pos == null)
-        return []
-      const glob = sqr[1]
-      const out: Array<PathPos> = []
-      if(!glob.down)
-        out.push({ pos: pos, down: true })
-      if(!glob.right)
-        out.push({ pos: pos, down: false })
-      return out
-    });
+  return toList(area.grid).flatMap((sqr: [string, GridTile]) => {
+    const pos = toPos(sqr[0])
+    if (pos == null)
+      return []
+    const glob = sqr[1]
+    const out: Array<PathPos> = []
+    if(!glob.down)
+      out.push({ pos: pos, down: true })
+    if(!glob.right)
+      out.push({ pos: pos, down: false })
+    return out
+  });
 }
 
 // loses typing
