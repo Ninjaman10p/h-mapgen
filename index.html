@@ -2,14 +2,59 @@
 <html>
 <head>
 
+<style>
+#main {
+  resize: both;
+  background-color: #dddddd;
+  width: 400px;
+  height: 800px;
+}
 
+#controls {
+  display: inline-block;
+  width: max-content;
+}
+
+#controls > label::before {
+  content: "\A";
+  white-space: pre;
+}
+
+#refresh-button {
+  display: block;
+  margin-left: auto;
+  margin-right: 20px;
+}
+</style>
 
 </head>
 <body>
 
-<canvas>
-  
-</canvas>
+<canvas id="main"></canvas>
+<form id="controls">
+  <label for="a.foreground">foreground color</label>
+  <input name="a.foreground" value="brown"/>
+
+  <label for="a.background">background color</label>
+  <input name="a.background" value="grey"/>
+
+  <label for="a.gap">gap</label>
+  <input type="number" name="a.gap" value="5"/>
+
+  <label for="a.rot">rotation (WIP)</label>
+  <input type="number" name="a.rot" value="0"/>
+
+  <label for="a.width">building width</label>
+  <input type="number" name="a.width" value="20"/>
+
+  <label for="a.height">building height</label>
+  <input type="number" name="a.height" value="20"/>
+
+  <label for="a.gen.prob">globbing</label>
+  <input type="number" name="a.gen.prob" value="50"/>
+
+  <button id="refresh-button">Refresh</button>
+</form>
 <script src="js/script.js"></script>
 
 </body>
