@@ -7,13 +7,10 @@ interface Pos
 
 type Color = string
 
+type Equivalence<A> = (a:A, b:A) => boolean
+
 interface Area
-  { pos: Pos
-  , width: number
-  , height: number
-  , gap: number
-  , rot: number
-  , foreground: Color
+  { foreground: Color
   , background: Color
   , grid: { [key: string]: GridTile }
   , gen: AreaParameters
@@ -26,7 +23,6 @@ interface Path
 
 interface AreaParameters
   { prob: number
-  , maxg: number
   , minsz: number
   , globst: number
   }
@@ -36,33 +32,50 @@ interface GridTile
   , right: boolean
   }
 
+type Edge = [number,number]
+
 interface Graph<A>
   { nodes: A[]
-  , edges: [number,number][]
+  , edges: Edge[]
   }
-
-type GraphProjection = Graph<number>
 
 type renderer = null | CanvasRenderingContext2D
 
+interface RenderAttr
+  { offset: Pos
+  , width: number
+  , height: number
+  , gap: number
+  }
+
+interface Global
+  { written: Area[]
+  , active: Area
+  , renderAttr: RenderAttr
+  }
+
 // shared state
-const written: Array<Area> = []
-const active: Area =
-  { pos: { x: 0, y: 0 }
-  , width: 20
-  , height: 20
-  , gap: 5
-  , rot: 0
-  , foreground: "green"
-  , background: "grey"
-  , grid: { }
-  , gen:
-    { prob: 20
-    , maxg: 5
-    , minsz: 5
-    , globst: 16
+const global: Global =
+  { written: []
+  , active:
+    { foreground: "green"
+    , background: "grey"
+    , grid: { }
+    , gen:
+      { prob: 20
+      , minsz: 5
+      , globst: 16
+      }
+    }
+  , renderAttr:
+    { offset: {x: 0, y: 0}
+    , width: 20
+    , height: 20
+    , gap: 5
     }
   }
+const written: Array<Area> = []
+let globalSize = 4
 
 // @ts-ignore
 const canvas: HTMLCanvasElement = document.getElementById("main")
@@ -76,11 +89,15 @@ main();
 
 // repeated IO (shared)
 function draw(): void {
+  if(ctx == undefined)
+    return
   canvas.width = canvas.offsetWidth
   canvas.height = canvas.offsetHeight
-  for (const a of written)
-    drawGrid(ctx, a)
-  drawGrid(ctx, active)
+  for (const a of global.written)
+    drawGrid(ctx, a, global.renderAttr)
+  ctx.globalAlpha = 0.7
+  drawGrid(ctx, global.active, global.renderAttr)
+  ctx.globalAlpha = 1
   requestAnimationFrame(draw)
 }
 draw()
@@ -107,7 +124,8 @@ function refresh() {
 function updateInput(elem: HTMLInputElement) {
   const val = (elem.type == "number" ? parseInt : id)(elem.value)
   const target: Array<string> = elem.name.split(".")
-  let current = { a: active }
+  console.log(target)
+  let current = { a: global.active, r: global.renderAttr }
   while(target.length > 1) {
     const move = target.shift()
     if (move == undefined)
@@ -118,20 +136,24 @@ function updateInput(elem: HTMLInputElement) {
   // @ts-ignore
   current[target[0]] = val;
 }
+{ 
+  // @ts-ignore
+  const updatable: HTMLInputElement[] = document.querySelectorAll("#controls > input")
+  for(const i of updatable)
+    i.addEventListener("change", updateInput.bind(null, i))
+}
 
 //IO
-function drawGrid(ctx: renderer, a: Area) {
+function drawGrid(ctx: renderer, a: Area, r: RenderAttr) {
   if (ctx == null) return;
   const prevFill = ctx.fillStyle
-  ctx.translate(a.pos.x, a.pos.y)
-  ctx.rotate(a.rot)
   const fullSq = { down: true, right: true }
   for(const key in a.grid) {
     const sqr = a.grid[key]
     const pos = toPos(key)
     if (pos == null) continue;
-    const xPos = pos.x * (a.width + a.gap)
-    const yPos = pos.y * (a.height + a.gap)
+    const xPos = pos.x * (r.width + r.gap)
+    const yPos = pos.y * (r.height + r.gap)
     for (const cx of [true, false])
       for (const cy of [true, false]) {
          let fill = (cx || sqr.right) && (cy || sqr.down)
@@ -143,28 +165,26 @@ function drawGrid(ctx: renderer, a: Area) {
          ctx.fillStyle = fill ? a.foreground : a.background
          if ((cy || downSq != undefined) && (cx || rightSq != undefined))
            ctx.fillRect
-             ( xPos + (cx ? 0 : a.width)
-             , yPos + (cy ? 0 : a.height)
-             , cx ? a.width : a.gap
-             , cy ? a.height : a.gap
+             ( xPos + (cx ? 0 : r.width)
+             , yPos + (cy ? 0 : r.height)
+             , cx ? r.width : r.gap
+             , cy ? r.height : r.gap
              )
       } 
   }
-  ctx.rotate(-a.rot)
-  ctx.translate(-a.pos.x, -a.pos.y)
   ctx.fillStyle = prevFill
 }
 
 //IO
 function refreshActive(): void {
   const grid: { [key: string]: GridTile } = { }
-  for (let x = 0; x < 40; x++)
-    for (let y = 0; y < 40; y++)
+  for (let x = 0; x < globalSize; x++)
+    for (let y = 0; y < globalSize; y++)
       grid[fromPos({ x: x, y: y })] = 
-        { down: wFlip(active.gen.prob / 100)
-        , right: wFlip(active.gen.prob / 100) 
+        { down: wFlip(global.active.gen.prob / 100)
+        , right: wFlip(global.active.gen.prob / 100) 
         }
-  active.grid = grid
+  global.active.grid = grid
 
   //const groups = genPathGroups(active)
   //trimGroupsOnSize(active.gen.minsz, active, groups)
@@ -180,6 +200,45 @@ function trimGroupsOnSize(num: number, area: Area, pathGroups: Path[][]): void {
     for(const p of next)
       remPath(p, area, pathGroups)
   }
+}
+
+// IO
+function shrinkGlobs(size: number, area: Area): void {
+  let globs: [Graph<Pos>, Edge[]][] = splitGraph(genGlobs(area)).map(g => [g, getBridges(g)])
+  while(globs.length > 0) {
+    console.log(globs)
+    // @ts-ignore
+    globs = globs.filter(g => g[0].nodes.length > size).flatMap(g => {
+      const glob = g[0]
+      const bridges = g[1]
+      const bp = Math.floor(Math.random() * bridges.length)
+      if(bridges[bp] == undefined)
+        return []
+      const newGlobs = splitGlob(findEdge(bridges[bp], glob)[0], area, glob)
+      return newGlobs.map(out => [out, transferEdges(bridges, out, glob, posEq)])
+    })
+  }
+}
+
+function findEdge<A>(edge: Edge, graph: Graph<A>): number[] {
+  return graph.edges.flatMap((e: Edge, i: number) => 
+    e[0] == edge[0] && e[1] == edge[1] ? [i] : [])
+}
+
+// IO
+function splitGlob(n: null | number, area: Area, glob: Graph<Pos>): Graph<Pos>[] {
+  const rem = edgeToPath(glob.edges[n ?? 0], glob)
+  const t = area.grid[fromPos((rem ?? { pos: {x:0,y:0},down: true }).pos)]
+  if (n == undefined || t == undefined || rem == null)
+    return []
+  if(rem.down)
+    t.down = false
+  else
+    t.right = false
+  return splitGraph(
+    { nodes: glob.nodes
+    , edges: [...glob.edges.slice(0, n), ...glob.edges.slice(n+1)]
+    })
 }
 
 // IO/State
@@ -225,6 +284,52 @@ function pathEq(p: Path, c: Path): boolean {
   return posEq(p.pos, c.pos) && c.down == p.down
 }
 
+/* Fails if there are identical nodes or if the
+ * node values changed between the graphs
+ */
+function transferEdges<A>(edges: Edge[], out: Graph<A>, g: Graph<A>, eq: Equivalence<A>): Edge[] {
+  return edges.flatMap(edge => {
+    const nth = [0,1].map(end => {
+      const nodePtr = edge[end]
+      const node = g.nodes[nodePtr ?? -1]
+      if (nodePtr == undefined || node == undefined)
+        return []
+      else
+        return out.nodes.flatMap((el, i) => eq(el, node) ? [i] : [])
+    })
+    return pairs(nth[0], nth[1])
+  })
+}
+
+function pairs<A,B>(a: A[], b: B[]): [A,B][] {
+  // @ts-ignore
+  return a.map(a1 => b.map(b1 => [a1, b1]))
+}
+
+// broken graph -> graph
+function renormaliseGraph<A>(graph: Graph<A>): Graph<A> {
+  return resolveGraphProjection(projectGraph(graph), graph)
+}
+
+function edgeToPath(edge: Edge, graph: Graph<Pos>): null | Path {
+  // @ts-ignore
+  const pos: [Pos, Pos] = edge.map(e => graph.nodes[e])
+  const x = pos[1].x - pos[0].x
+  const y = pos[1].y - pos[0].y
+  if(x+y < 0)
+    pos.reverse()
+  if(Math.abs(x) == 1 && Math.abs(y) == 0)
+    return { pos: pos[0], down: false }
+  else if(Math.abs(y) == 1 && Math.abs(x) == 0)
+    return { pos: pos[0], down: true }
+  else
+    return null
+}
+
+function projectGraph<A>(graph: Graph<A>): number[] {
+  return graph.nodes.flatMap((elem: A, i: number) => 
+    elem == undefined ? [] : [i])
+}
 
 function genPathGroups(area: Area): Path[][] {
   const paths = getAllPaths(area)
@@ -236,6 +341,20 @@ function genPathGroups(area: Area): Path[][] {
     updatePathGroups(test, pathGroups);
   }
   return pathGroups
+}
+
+function getBridges<A>(graph: Graph<A>): Edge[] {
+  return getBridgePointers(graph).map(n => graph.edges[n])
+}
+
+// assumes connected graph, otherwise will give all edges
+function getBridgePointers<A>(graph: Graph<A>): number[] {
+  return graph.edges.map((e, i) => i).filter(i => {
+    return !graphConnected(
+      { nodes: graph.nodes
+      , edges: [...graph.edges.slice(0, i), ...graph.edges.slice(i+1)]
+      })
+  })
 }
 
 function splitGraph<A>(graph: Graph<A>): Graph<A>[] {
@@ -250,14 +369,14 @@ function splitGraph<A>(graph: Graph<A>): Graph<A>[] {
       i++
     }
     const newsub = subgraphProjection([i], graph)
-    for(const n of newsub)
-      removed.push(n)
+    Array.prototype.push.apply(removed, newsub)
     out.push(newsub)
   }
   return out.map(e => resolveGraphProjection(e, graph))
 }
 
-function graphConnected<A>(graph: Graph<A>, eq: (a:A,b:A) => boolean): boolean {
+function graphConnected<A>(graph: Graph<A>): boolean {
+  console.log("graphConnected")
   return graph.nodes.length == subgraphWith([0], graph).nodes.length
 }
 
@@ -271,7 +390,7 @@ function subgraphWith<A>(start: number[], g: Graph<A>): Graph<A> {
   return resolveGraphProjection(subgraphProjection(start, g), g)
 }
 
-function subgraphProjection<A>(start: number[], g: Graph<A>): number[] {
+function subgraphProjection<A>( start: number[], g: Graph<A>): number[] {
   const projection = [...start]
   let old = [...projection]
   let next = [...projection]
