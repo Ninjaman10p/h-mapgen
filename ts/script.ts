@@ -61,8 +61,14 @@ interface RenderAttr
   , gap: number
   }
 
+interface Annotation
+  { pos: Pos
+  , contents: string
+  }
+
 interface Global
   { written: { [key: string]: Area }
+  , notes: Annotation[]
   , active: Area
   , render: RenderAttr
   , mapname: string
@@ -81,6 +87,7 @@ const global: Global =
     }
   , mapname: "New Map"
   , chunkSize: 16
+  , notes: []
   }
 const param: AreaParameters =
   { prob: 20
@@ -113,6 +120,7 @@ function main(): void {
   canvas.addEventListener("mousedown", startClick)
   canvas.addEventListener("mouseup", endClick)
   canvas.addEventListener("mousemove", moveClick)
+  canvas.addEventListener("contextmenu", preventEvent)
 }
 main();
 
@@ -126,6 +134,11 @@ function addButtonEventByID(id: string, event: string, f: EventListener) {
   }
 }
 
+function preventEvent(event: Event) {
+  event.preventDefault()
+  return false
+}
+
 // IO
 function startClick(event: MouseEvent) {
   //@ts-ignore
@@ -137,26 +150,59 @@ function startClick(event: MouseEvent) {
   const y = Math.floor(
         (event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap))
         - global.render.offset.y
-  if(event.ctrlKey) {
-    const col = toColor(param.foreground)
-    if(col == null) {
-      alert("Invalid color")
-      return
-    }
-    const chunk: Pos = { x: Math.floor(x/16), y: Math.floor(y/16) }
-    const clump = pairs([-1,0,1],[-1,0,1]).map((p: [number,number]) => {
-      return global.written[fromPos({x: chunk.x + p[0], y: chunk.y + p[1]})] ?? { }
-    })
-    setColor({x: x, y: y}, mergeChunks(clump), col)
-  }
-  clickPos =
-    { pos: 
-      { x: x
-      , y: y
+  if(event.button == 0) {
+    if(event.ctrlKey) {
+      const col = toColor(param.foreground)
+      if(col == null) {
+        alert("Invalid color")
+        return
       }
-    , shiftMod: event.shiftKey
-    , ctrlMod: event.ctrlKey
+      const chunk: Pos = { x: Math.floor(x/16), y: Math.floor(y/16) }
+      const clump = pairs([-1,0,1],[-1,0,1]).map((p: [number,number]) => {
+        return global.written[fromPos({x: chunk.x + p[0], y: chunk.y + p[1]})] ?? { }
+      })
+      setColor({x: x, y: y}, mergeChunks(clump), col)
     }
+    clickPos =
+      { pos: 
+        { x: x
+        , y: y
+        }
+      , shiftMod: event.shiftKey
+      , ctrlMod: event.ctrlKey
+      }
+  } else if(event.button == 2) {
+    if(event.shiftKey) {
+      const annotation = prompt("Enter annotation")
+      if(annotation == null)
+        return
+      global.notes.push({ pos: {x: x, y: y}, contents: annotation })
+      updateAnnotations()
+    } else {
+      if(event.ctrlKey)
+        for(let i = 0; i < global.notes.length; i++) {
+          const note = global.notes[i]
+          if(posEq(note.pos, {x: x, y: y})) {
+            const edit = prompt("Edit annotation", note.contents)
+            if(edit == null)
+              return
+            else if (edit == "")
+              global.notes.splice(i, 1)
+            else
+              note.contents = edit
+          }
+        }
+      else
+        for(const note of global.notes)
+          if(posEq(note.pos, {x: x, y: y}))
+            alert(note.contents)
+    }
+  }
+}
+
+// IO
+function updateAnnotations() {
+
 }
 
 // IO
@@ -298,9 +344,6 @@ function draw(canvas: HTMLCanvasElement, cont: boolean): void {
     { x: Math.floor(-render.offset.x / 16)
     , y: Math.floor(-render.offset.y / 16)
     }
-  if(canvas.width != 800) {
-    console.log(canvas.width)
-  }
   const endChunk: Pos =
     { x: 2 + startChunk.x + Math.ceil(canvas.width / (global.chunkSize * render.width * render.gap))
     , y: 2 + startChunk.y + Math.ceil(canvas.height / (global.chunkSize * render.height * render.gap))
@@ -324,6 +367,30 @@ function draw(canvas: HTMLCanvasElement, cont: boolean): void {
   ctx.translate(
       -render.offset.x * (render.width + render.gap)
     , -render.offset.y * (render.height + render.gap))
+  for(let i = 0; i < global.notes.length; i++) {
+    const note = global.notes[i]
+    ctx.globalAlpha = 0.4
+    ctx.fillStyle = "orange"
+    ctx.beginPath()
+    ctx.arc(
+        (note.pos.x + render.offset.x) * (render.width + render.gap) + (render.width / 2)
+      , (note.pos.y + render.offset.y) * (render.height + render.gap) + (render.height / 2)
+      , 3 * (Math.max(2, 1 + Math.floor(Math.log10(i + 0.5))))
+      , 0
+      , 2 * Math.PI
+      )
+    ctx.fill()
+    ctx.globalAlpha = 1
+    ctx.font = "10px sans-serif"
+    ctx.fillStyle = "black"
+    ctx.textBaseline = "middle"
+    ctx.textAlign = "center"
+    ctx.fillText(
+        (<string> <unknown> i)
+      , (note.pos.x + render.offset.x) * (render.width + render.gap) + (render.width / 2)
+      , (note.pos.y + render.offset.y) * (render.height + render.gap) + (render.height / 2)
+      )
+  }
   if(cont)
     requestAnimationFrame(draw.bind(null, canvas, true))
 }
