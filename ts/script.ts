@@ -28,6 +28,8 @@ interface AreaParameters
   , randCh: number
   , foreground: string
   , background: string
+  , colors: string[]
+  , colorprobs: number[]
   }
 
 interface GridTile
@@ -85,6 +87,8 @@ const param: AreaParameters =
   , randCh: 3
   , foreground: "brown"
   , background: "grey"
+  , colors: []
+  , colorprobs: []
   }
 // @ts-ignore
 const canvas: HTMLCanvasElement = document.getElementById("main")
@@ -95,26 +99,27 @@ let clickPos: null | ClickPos = null
 // IO (shared)
 function main(): void {
   refresh()
+  addButtonEventByID("refresh-button", "click", refresh)
+  addButtonEventByID("add-cust-color", "click", addCustColor)
+  addButtonEventByID("save-button", "click", save)
   // @ts-ignore
-  const refreshButton: null | HTMLButtonElement = document.getElementById("refresh-button")
-  if(refreshButton != null) {
-    refreshButton.addEventListener("click", refresh)
-    refreshButton.type = "button"
-  }
-  // @ts-ignore
-  const saveButton: null | HTMLButtonElement = document.getElementById("save-button")
-  if(saveButton != null) {
-    saveButton.addEventListener("click", save)
-    saveButton.type = "button"
-  }
-  // @ts-ignore
-  const updatable: HTMLInputElement[] = document.querySelectorAll("#controls > input")
+  const updatable: HTMLInputElement[] = document.querySelectorAll("#controls input")
   for(const i of updatable)
     i.addEventListener("change", updateInput.bind(null, i))
   canvas.addEventListener("mousedown", startClick)
   canvas.addEventListener("mouseup", endClick)
 }
 main();
+
+// IO
+function addButtonEventByID(id: string, event: string, f: EventListener) {
+  // @ts-ignore
+  const button: null | HTMLButtonElement = document.getElementById(id)
+  if(button != null) {
+    button.addEventListener(event, f)
+    button.type = "button"
+  }
+}
 
 // IO
 function startClick(event: MouseEvent) {
@@ -143,23 +148,6 @@ function startClick(event: MouseEvent) {
     }
 }
 
-// IO
-function setColor(pos: Pos, area: Area, color: Color) {
-  const globs = genGlobs(area)
-  const match: number[] = []
-  for(let i = 0; i < globs.nodes.length; i++) {
-    if(posEq(globs.nodes[i], pos))
-      match.push(i)
-  }
-  const change = subgraphWith(match, globs)
-  for(const p of change.nodes) {
-    const sqr = area[fromPos(p)]
-    if(sqr == undefined)
-      continue
-    sqr.foreground = color
-  }
-}
-
 /// IO
 function endClick(event: MouseEvent) {
   //@ts-ignore
@@ -179,6 +167,56 @@ function endClick(event: MouseEvent) {
       if(!clickPos.shiftMod || !selected.reduce(reducer, false))
         selected.push({ x: i, y: j })
     }
+}
+
+// IO
+function setColor(pos: Pos, area: Area, color: Color) {
+  const globs = genGlobs(area)
+  const match: number[] = []
+  for(let i = 0; i < globs.nodes.length; i++) {
+    if(posEq(globs.nodes[i], pos))
+      match.push(i)
+  }
+  const change = subgraphWith(match, globs)
+  for(const p of change.nodes) {
+    const sqr = area[fromPos(p)]
+    if(sqr == undefined)
+      continue
+    sqr.foreground = color
+  }
+}
+
+// IO
+function addCustColor() {
+  const container = document.getElementById("cust-colors")
+  if(container == null)
+    return
+  const currentCount = document.getElementsByClassName("cust-color-val").length
+  const label1 = document.createElement("label")
+  label1.htmlFor = `g.colors.${currentCount}`
+  label1.innerText = `colour ${currentCount}`
+  const input1 = document.createElement("input")
+  input1.value = "red"
+  input1.type = "text"
+  input1.name = `g.colors.${currentCount}`
+  input1.classList.add("cust-color-val")
+  const label2 = document.createElement("label")
+  label2.htmlFor = `g.colorprobs.${currentCount}`
+  label2.innerHTML = "probability (&pertenk;)"
+  const input2 = document.createElement("input")
+  input2.value = "1"
+  input2.type = "number"
+  input2.name = `g.colorprobs.${currentCount}`
+  container.appendChild(label1)
+  container.appendChild(input1)
+  container.appendChild(document.createElement("br"))
+  container.appendChild(label2)
+  container.appendChild(input2)
+  container.appendChild(document.createElement("br"))
+  param.colors[currentCount] = "red"
+  param.colorprobs[currentCount] = 1
+  input1.addEventListener("change", updateInput.bind(null, input1))
+  input2.addEventListener("change", updateInput.bind(null, input1))
 }
 
 // repeated IO (shared)
@@ -217,7 +255,7 @@ function save() {
 // IO from button
 function refresh() {
   // @ts-ignore
-  const fields: HTMLInputElement[] = document.querySelectorAll("#controls > input")
+  const fields: HTMLInputElement[] = document.querySelectorAll("#controls input")
   for(const i of fields) {
     updateInput(i);
   }
@@ -240,6 +278,19 @@ function normaliseColours(area: Area) {
       if (sqr == undefined)
         continue
       sqr.foreground = fg
+    }
+  }
+}
+
+// IO
+function applyCustColor(col: Color, prob: number, area: Area) {
+  const globs = splitGraph(genGlobs(area))
+  for(const glob of globs) {
+    if(Math.random() * 10000 < prob) {
+      const pos = glob.nodes[0]
+      if(pos == undefined)
+        continue
+      setColor(pos, area, col)
     }
   }
 }
@@ -348,6 +399,14 @@ function refreshActive(): void {
   for(let i = 0;  i < param.minsz; i++) {
     const groups = genPathGroups(global.active)
     trimSuburbs(param.minsz, global.active, groups)
+  }
+  for(let i = 0; i < param.colors.length; i++) {
+    const col = toColor(param.colors[i] ?? "")
+    if(col == undefined)
+      continue
+    if(param.colorprobs[i] == undefined)
+      continue
+    applyCustColor(col, param.colorprobs[i], global.active)
   }
 }
 

@@ -14,18 +14,22 @@ body {
   height: 1000px;
 }
 
-#controls {
+#controls, #controls > span {
   display: inline-block;
   width: max-content;
 }
 
-#controls > label {
+#controls > span label {
+  margin-right: 3px
+}
+
+#controls label {
   min-width: 200px;
   display: inline-block;
   text-align: right;
 }
 
-#controls > button {
+#controls button {
   display: block;
   margin-left: auto;
   margin-right: 20px;
@@ -67,6 +71,8 @@ body {
   <label for="g.minsz">minimum suburb size</label>
   <input type="number" name="g.masz" value="4"/>
   <br/>
+  <span id="cust-colors"></span>
+  <button id="add-cust-color">Add Color</button>
   <button id="refresh-button">Generate</button>
   <button id="save-button">Save</button>
 </form>
