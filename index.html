@@ -3,6 +3,10 @@
 <head>
 
 <style>
+body {
+  font-family: sans-serif
+}
+
 #main {
   resize: both;
   background-color: #dddddd;
@@ -15,12 +19,13 @@
   width: max-content;
 }
 
-#controls > label::before {
-  content: "\A";
-  white-space: pre;
+#controls > label {
+  min-width: 200px;
+  display: inline-block;
+  text-align: right;
 }
 
-#refresh-button {
+#controls > button {
   display: block;
   margin-left: auto;
   margin-right: 20px;
@@ -32,32 +37,36 @@
 
 <canvas id="main"></canvas>
 <form id="controls">
+  <label for="gl.mapname">name</label>
+  <input name="gl.mapname" value="New Map"/>
+  <br/> 
   <label for="a.foreground">building color</label>
   <input name="a.foreground" value="brown"/>
-
+  <br/>
   <label for="a.background">street color</label>
   <input name="a.background" value="grey"/>
-
+  <br/>
   <label for="r.gap">street width</label>
   <input type="number" name="r.gap" value="5"/>
-
+  <br/>
   <label for="r.width">block width</label>
   <input type="number" name="r.width" value="20"/>
-
+  <br/>
   <label for="r.height">block height</label>
   <input type="number" name="r.height" value="20"/>
-
-  <label for="a.gen.prob">globbing (%)</label>
-  <input type="number" name="a.gen.prob" value="50"/>
-
-  <label for="a.gen.globst">maximum glob perimeter</label>
-  <input type="number" name="a.gen.globst" value="16"/>
-
-  <label for="a.gen.minsz">minimum suburb size</label>
-  <input type="number" name="a.gen.masz" value="4"/>
-
+  <br/>
+  <label for="g.prob">globbing (%)</label>
+  <input type="number" name="g.prob" value="40"/>
+  <br/>
+  <label for="g.globst">maximum glob size</label>
+  <input type="number" name="g.globsz" value="5"/>
+  <br/>
+  <label for="g.minsz">minimum suburb size</label>
+  <input type="number" name="g.masz" value="4"/>
+  <br/>
   <button id="refresh-button">Refresh</button>
   <button id="commit-active">Commit</button>
+  <button id="save-button">Save</button>
 </form>
 <script src="js/script.js"></script>
 

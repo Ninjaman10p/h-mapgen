@@ -3,42 +3,115 @@
 const global = { written: [],
     active: { foreground: "green",
         background: "grey",
-        grid: {},
-        gen: { prob: 20,
-            minsz: 5,
-            globst: 16
-        }
+        grid: {}
     },
-    renderAttr: { offset: { x: 0, y: 0 },
+    render: { offset: { x: 0, y: 0 },
         width: 20,
         height: 20,
         gap: 5
-    }
+    },
+    mapname: "New Map"
+};
+const param = { prob: 20,
+    minsz: 5,
+    globsz: 5
 };
 const written = [];
-let globalSize = 4;
+let globalSize = 40;
 // @ts-ignore
 const canvas = document.getElementById("main");
 const ctx = canvas.getContext('2d');
+let selected = [];
+let clickPos = null;
 // IO (shared)
 function main() {
     refresh();
+    // @ts-ignore
+    const refreshButton = document.getElementById("refresh-button");
+    if (refreshButton != null) {
+        refreshButton.addEventListener("click", refresh);
+        refreshButton.type = "button";
+    }
+    // @ts-ignore
+    const saveButton = document.getElementById("save-button");
+    if (saveButton != null) {
+        saveButton.addEventListener("click", save);
+        saveButton.type = "button";
+    }
+    // @ts-ignore
+    const updatable = document.querySelectorAll("#controls > input");
+    for (const i of updatable)
+        i.addEventListener("change", updateInput.bind(null, i));
+    // @ts-ignore
+    const commitButton = document.getElementById("commit-active");
+    if (commitButton != null) {
+        commitButton.addEventListener("click", commitActive);
+        commitButton.type = "button";
+    }
+    canvas.addEventListener("mousedown", startClick);
+    canvas.addEventListener("mouseup", endClick);
 }
 main();
+// IO
+function startClick(event) {
+    //@ts-ignore
+    const target = event.target;
+    const render = global.render;
+    const x = Math.floor((event.clientX - target.getBoundingClientRect().x) / (render.width + render.gap));
+    const y = Math.floor((event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap));
+    clickPos =
+        { pos: { x: x,
+                y: y
+            },
+            shiftMod: event.shiftKey
+        };
+}
+/// IO
+function endClick(event) {
+    //@ts-ignore
+    const target = event.target;
+    const render = global.render;
+    const x = Math.floor((event.clientX - target.getBoundingClientRect().x) / (render.width + render.gap));
+    const y = Math.floor((event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap));
+    if (clickPos == null)
+        return;
+    if (!clickPos.shiftMod)
+        selected = [];
+    for (let i = Math.min(clickPos.pos.x, x); i <= Math.max(clickPos.pos.x, x); i++)
+        for (let j = Math.min(clickPos.pos.y, y); j <= Math.max(clickPos.pos.y, y); j++) {
+            const reducer = (last, current) => last || (current.x == i) && (current.y == j);
+            if (!clickPos.shiftMod || !selected.reduce(reducer, false))
+                selected.push({ x: i, y: j });
+        }
+}
 // repeated IO (shared)
 function draw() {
     if (ctx == undefined)
         return;
+    const render = global.render;
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
-    for (const a of global.written)
-        drawGrid(ctx, a, global.renderAttr);
+    for (const a of global.written) {
+        drawGrid(ctx, a, global.render);
+    }
     ctx.globalAlpha = 0.7;
-    drawGrid(ctx, global.active, global.renderAttr);
-    ctx.globalAlpha = 1;
+    drawGrid(ctx, global.active.grid, render);
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = "blue";
+    for (const pos of selected)
+        ctx.fillRect(pos.x * (render.width + render.gap), pos.y * (render.height + render.gap), render.width + render.gap, render.height + render.gap);
     requestAnimationFrame(draw);
 }
 draw();
+//IO
+function save() {
+    const filename = `${global.mapname.replaceAll(/[^\w]/gi, "-")}.map.json`;
+    const file = new File([JSON.stringify(global)], filename, { type: "text/JSON" });
+    const download = document.createElement("a");
+    download.href = URL.createObjectURL(file);
+    download.download = filename;
+    download.click();
+}
 // IO from button
 function refresh() {
     // @ts-ignore
@@ -48,20 +121,11 @@ function refresh() {
     }
     refreshActive();
 }
-{
-    // @ts-ignore
-    const button = document.getElementById("refresh-button");
-    if (button != null) {
-        button.addEventListener("click", refresh);
-        button.type = "button";
-    }
-}
 // IO
 function updateInput(elem) {
     const val = (elem.type == "number" ? parseInt : id)(elem.value);
     const target = elem.name.split(".");
-    console.log(target);
-    let current = { a: global.active, r: global.renderAttr };
+    let current = { a: global.active, r: global.render, g: param, gl: global };
     while (target.length > 1) {
         const move = target.shift();
         if (move == undefined)
@@ -72,11 +136,11 @@ function updateInput(elem) {
     // @ts-ignore
     current[target[0]] = val;
 }
-{
-    // @ts-ignore
-    const updatable = document.querySelectorAll("#controls > input");
-    for (const i of updatable)
-        i.addEventListener("change", updateInput.bind(null, i));
+//IO
+function commitActive() {
+    const a = global.active;
+    global.written.push(a.grid);
+    global.active.grid = {};
 }
 //IO
 function drawGrid(ctx, a, r) {
@@ -84,8 +148,8 @@ function drawGrid(ctx, a, r) {
         return;
     const prevFill = ctx.fillStyle;
     const fullSq = { down: true, right: true };
-    for (const key in a.grid) {
-        const sqr = a.grid[key];
+    for (const key in a) {
+        const sqr = a[key];
         const pos = toPos(key);
         if (pos == null)
             continue;
@@ -94,14 +158,13 @@ function drawGrid(ctx, a, r) {
         for (const cx of [true, false])
             for (const cy of [true, false]) {
                 let fill = (cx || sqr.right) && (cy || sqr.down);
-                const rightSq = a.grid[fromPos({ x: pos.x + 1, y: pos.y })];
-                const downSq = a.grid[fromPos({ x: pos.x, y: pos.y + 1 })];
+                const rightSq = a[fromPos({ x: pos.x + 1, y: pos.y })];
+                const downSq = a[fromPos({ x: pos.x, y: pos.y + 1 })];
                 if (!cx && !cy)
-                    fill && (fill = (rightSq !== null && rightSq !== void 0 ? rightSq : fullSq).down
-                        && (downSq !== null && downSq !== void 0 ? downSq : fullSq).right);
-                ctx.fillStyle = fill ? a.foreground : a.background;
-                if ((cy || downSq != undefined) && (cx || rightSq != undefined))
-                    ctx.fillRect(xPos + (cx ? 0 : r.width), yPos + (cy ? 0 : r.height), cx ? r.width : r.gap, cy ? r.height : r.gap);
+                    fill &&= (rightSq ?? fullSq).down
+                        && (downSq ?? fullSq).right;
+                ctx.fillStyle = fill ? sqr.foreground : sqr.background;
+                ctx.fillRect(xPos + (cx ? 0 : r.width), yPos + (cy ? 0 : r.height), cx ? r.width : r.gap, cy ? r.height : r.gap);
             }
     }
     ctx.fillStyle = prevFill;
@@ -109,18 +172,42 @@ function drawGrid(ctx, a, r) {
 //IO
 function refreshActive() {
     const grid = {};
-    for (let x = 0; x < globalSize; x++)
-        for (let y = 0; y < globalSize; y++)
-            grid[fromPos({ x: x, y: y })] =
-                { down: wFlip(global.active.gen.prob / 100),
-                    right: wFlip(global.active.gen.prob / 100)
+    if (Object.keys(global.active.grid).length == 0)
+        for (const i of selected) {
+            grid[fromPos({ x: i.x, y: i.y })] =
+                { down: wFlip(param.prob / 100),
+                    right: wFlip(param.prob / 100),
+                    foreground: global.active.foreground,
+                    background: global.active.background
                 };
+            selected = [];
+        }
+    else
+        for (const i in global.active.grid)
+            grid[i] =
+                { down: wFlip(param.prob / 100),
+                    right: wFlip(param.prob / 100),
+                    foreground: global.active.foreground,
+                    background: global.active.background
+                };
+    for (const i in grid) {
+        const pos = toPos(i);
+        if (pos == null)
+            continue;
+        if (grid[fromPos({ x: pos.x + 1, y: pos.y })] == undefined)
+            grid[i].right = false;
+        if (grid[fromPos({ x: pos.x, y: pos.y + 1 })] == undefined)
+            grid[i].down = false;
+    }
     global.active.grid = grid;
-    //const groups = genPathGroups(active)
-    //trimGroupsOnSize(active.gen.minsz, active, groups)
+    shrinkGlobs(param.globsz, global.active.grid);
+    for (let i = 0; i < param.minsz; i++) {
+        const groups = genPathGroups(global.active.grid);
+        trimSuburbs(param.minsz, global.active.grid, groups);
+    }
 }
-// State
-function trimGroupsOnSize(num, area, pathGroups) {
+// IO
+function trimSuburbs(num, area, pathGroups) {
     let removing = pathGroups.filter(el => el.length < num);
     while (removing.length > 0) {
         const next = removing.pop();
@@ -132,18 +219,14 @@ function trimGroupsOnSize(num, area, pathGroups) {
 }
 // IO
 function shrinkGlobs(size, area) {
-    let globs = splitGraph(genGlobs(area)).map(g => [g, getBridges(g)]);
+    let globs = splitGraph(genGlobs(area));
     while (globs.length > 0) {
-        console.log(globs);
-        // @ts-ignore
-        globs = globs.filter(g => g[0].nodes.length > size).flatMap(g => {
-            const glob = g[0];
-            const bridges = g[1];
+        globs = globs.filter(g => g.nodes.length > size).flatMap(glob => {
+            const bridges = getBridges(glob);
             const bp = Math.floor(Math.random() * bridges.length);
-            if (bridges[bp] == undefined)
+            if (bridges[bp] == undefined || bridges.length == 0)
                 return [];
-            const newGlobs = splitGlob(findEdge(bridges[bp], glob)[0], area, glob);
-            return newGlobs.map(out => [out, transferEdges(bridges, out, glob, posEq)]);
+            return splitGlob(findEdge(bridges[bp], glob)[0], area, glob);
         });
     }
 }
@@ -152,8 +235,8 @@ function findEdge(edge, graph) {
 }
 // IO
 function splitGlob(n, area, glob) {
-    const rem = edgeToPath(glob.edges[n !== null && n !== void 0 ? n : 0], glob);
-    const t = area.grid[fromPos((rem !== null && rem !== void 0 ? rem : { pos: { x: 0, y: 0 }, down: true }).pos)];
+    const rem = edgeToPath(glob.edges[n ?? 0], glob);
+    const t = area[fromPos((rem ?? { pos: { x: 0, y: 0 }, down: true }).pos)];
     if (n == undefined || t == undefined || rem == null)
         return [];
     if (rem.down)
@@ -166,7 +249,7 @@ function splitGlob(n, area, glob) {
 }
 // IO/State
 function remPath(p, area, pathGroups) {
-    const t = area.grid[fromPos(p.pos)];
+    const t = area[fromPos(p.pos)];
     if (t == undefined)
         return;
     if (p.down)
@@ -185,7 +268,7 @@ function remPath(p, area, pathGroups) {
 }
 // IO
 function insPath(p, area, pathGroups) {
-    const t = area.grid[fromPos(p.pos)];
+    const t = area[fromPos(p.pos)];
     if (t == undefined)
         return;
     if (p.down)
@@ -208,7 +291,7 @@ function transferEdges(edges, out, g, eq) {
     return edges.flatMap(edge => {
         const nth = [0, 1].map(end => {
             const nodePtr = edge[end];
-            const node = g.nodes[nodePtr !== null && nodePtr !== void 0 ? nodePtr : -1];
+            const node = g.nodes[nodePtr ?? -1];
             if (nodePtr == undefined || node == undefined)
                 return [];
             else
@@ -282,7 +365,6 @@ function splitGraph(graph) {
     return out.map(e => resolveGraphProjection(e, graph));
 }
 function graphConnected(graph) {
-    console.log("graphConnected");
     return graph.nodes.length == subgraphWith([0], graph).nodes.length;
 }
 function nodeDegree(elem, graph, eq) {
@@ -343,16 +425,16 @@ function preimage(f, b) {
 }
 function genGlobs(area) {
     const graph = { nodes: [], edges: [] };
-    for (const key in area.grid) {
+    for (const key in area) {
         const pos = toPos(key);
         if (pos == null)
             continue;
         for (let i = 0; i < graph.nodes.length; i++) {
             const node = graph.nodes[i];
-            const sqr = area.grid[fromPos(node)];
+            const sqr = area[fromPos(node)];
             if (sqr == undefined)
                 continue;
-            if (buildAdj([node, sqr], [pos, area.grid[key]]))
+            if (buildAdj([node, sqr], [pos, area[key]]))
                 graph.edges.push([i, graph.nodes.length]);
         }
         graph.nodes.push(pos);
@@ -410,7 +492,7 @@ function pathAdj(a, b) {
         return (-1 <= tang && tang <= 0) && (0 <= norm && norm <= 1);
 }
 function getAllPaths(area) {
-    return toList(area.grid).flatMap((sqr) => {
+    return toList(area).flatMap((sqr) => {
         const pos = toPos(sqr[0]);
         if (pos == null)
             return [];
