@@ -173,29 +173,35 @@ function startClick(event: MouseEvent) {
       }
   } else if(event.button == 2) {
     if(event.shiftKey) {
-      const annotation = prompt("Enter annotation")
-      if(annotation == null)
-        return
-      global.notes.push({ pos: {x: x, y: y}, contents: annotation })
-      updateAnnotations()
-    } else {
-      if(event.ctrlKey)
-        for(let i = 0; i < global.notes.length; i++) {
-          const note = global.notes[i]
-          if(posEq(note.pos, {x: x, y: y})) {
-            const edit = prompt("Edit annotation", note.contents)
-            if(edit == null)
-              return
-            else if (edit == "")
-              global.notes.splice(i, 1)
-            else
-              note.contents = edit
-          }
+      const toEdit: number[] = []
+      for(let i = 0; i < global.notes.length; i++) {
+        const note = global.notes[i]
+        if(posEq(note.pos, {x: x, y: y})) {
+          toEdit.push(i)
         }
-      else
-        for(const note of global.notes)
-          if(posEq(note.pos, {x: x, y: y}))
-            alert(note.contents)
+      }
+      if(toEdit.length > 0)
+        for(const i of toEdit) {
+          const note = global.notes[i]
+          const edit = prompt("Edit annotation", note.contents)
+          if(edit == null)
+            return
+          else if (edit == "")
+            global.notes.splice(i, 1)
+          else
+            note.contents = edit
+        }
+      else {
+        const annotation = prompt("Enter annotation")
+        if(annotation == null)
+          return
+        global.notes.push({ pos: {x: x, y: y}, contents: annotation })
+        updateAnnotations()
+      }
+    } else {
+      for(const note of global.notes)
+        if(posEq(note.pos, {x: x, y: y}))
+          alert(note.contents)
     }
   }
 }
