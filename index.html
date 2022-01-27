@@ -40,11 +40,11 @@ body {
   <label for="gl.mapname">name</label>
   <input name="gl.mapname" value="New Map"/>
   <br/> 
-  <label for="a.foreground">building color</label>
-  <input name="a.foreground" value="brown"/>
+  <label for="g.foreground">building color</label>
+  <input name="g.foreground" value="brown"/>
   <br/>
-  <label for="a.background">street color</label>
-  <input name="a.background" value="grey"/>
+  <label for="g.background">street color</label>
+  <input name="g.background" value="grey"/>
   <br/>
   <label for="r.gap">street width</label>
   <input type="number" name="r.gap" value="5"/>
@@ -61,11 +61,13 @@ body {
   <label for="g.globst">maximum glob size</label>
   <input type="number" name="g.globsz" value="5"/>
   <br/>
+  <label for="g.randCh">frequency of landmarks (%)</label>
+  <input type="number" name="g.randCh" value="3"/>
+  <br/>
   <label for="g.minsz">minimum suburb size</label>
   <input type="number" name="g.masz" value="4"/>
   <br/>
-  <button id="refresh-button">Refresh</button>
-  <button id="commit-active">Commit</button>
+  <button id="refresh-button">Generate</button>
   <button id="save-button">Save</button>
 </form>
 <script src="js/script.js"></script>

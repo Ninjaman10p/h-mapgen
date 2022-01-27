@@ -1,10 +1,7 @@
 "use strict";
 // shared state
-const global = { written: [],
-    active: { foreground: "green",
-        background: "grey",
-        grid: {}
-    },
+const global = { written: {},
+    active: {},
     render: { offset: { x: 0, y: 0 },
         width: 20,
         height: 20,
@@ -14,10 +11,11 @@ const global = { written: [],
 };
 const param = { prob: 20,
     minsz: 5,
-    globsz: 5
+    globsz: 5,
+    randCh: 3,
+    foreground: "brown",
+    background: "grey"
 };
-const written = [];
-let globalSize = 40;
 // @ts-ignore
 const canvas = document.getElementById("main");
 const ctx = canvas.getContext('2d');
@@ -42,12 +40,6 @@ function main() {
     const updatable = document.querySelectorAll("#controls > input");
     for (const i of updatable)
         i.addEventListener("change", updateInput.bind(null, i));
-    // @ts-ignore
-    const commitButton = document.getElementById("commit-active");
-    if (commitButton != null) {
-        commitButton.addEventListener("click", commitActive);
-        commitButton.type = "button";
-    }
     canvas.addEventListener("mousedown", startClick);
     canvas.addEventListener("mouseup", endClick);
 }
@@ -59,12 +51,37 @@ function startClick(event) {
     const render = global.render;
     const x = Math.floor((event.clientX - target.getBoundingClientRect().x) / (render.width + render.gap));
     const y = Math.floor((event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap));
+    if (event.ctrlKey) {
+        const col = toColor(param.foreground);
+        if (col == null) {
+            alert("Invalid color");
+            return;
+        }
+        setColor({ x: x, y: y }, global.written, col);
+    }
     clickPos =
         { pos: { x: x,
                 y: y
             },
-            shiftMod: event.shiftKey
+            shiftMod: event.shiftKey,
+            ctrlMod: event.ctrlKey
         };
+}
+// IO
+function setColor(pos, area, color) {
+    const globs = genGlobs(area);
+    const match = [];
+    for (let i = 0; i < globs.nodes.length; i++) {
+        if (posEq(globs.nodes[i], pos))
+            match.push(i);
+    }
+    const change = subgraphWith(match, globs);
+    for (const p of change.nodes) {
+        const sqr = area[fromPos(p)];
+        if (sqr == undefined)
+            continue;
+        sqr.foreground = color;
+    }
 }
 /// IO
 function endClick(event) {
@@ -73,7 +90,7 @@ function endClick(event) {
     const render = global.render;
     const x = Math.floor((event.clientX - target.getBoundingClientRect().x) / (render.width + render.gap));
     const y = Math.floor((event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap));
-    if (clickPos == null)
+    if (clickPos == null || clickPos.ctrlMod)
         return;
     if (!clickPos.shiftMod)
         selected = [];
@@ -91,15 +108,14 @@ function draw() {
     const render = global.render;
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
-    for (const a of global.written) {
-        drawGrid(ctx, a, global.render);
-    }
+    drawGrid(ctx, global.written, global.render);
     ctx.globalAlpha = 0.7;
-    drawGrid(ctx, global.active.grid, render);
+    drawGrid(ctx, global.active, render);
     ctx.globalAlpha = 0.3;
     ctx.fillStyle = "blue";
     for (const pos of selected)
         ctx.fillRect(pos.x * (render.width + render.gap), pos.y * (render.height + render.gap), render.width + render.gap, render.height + render.gap);
+    ctx.globalAlpha = 1;
     requestAnimationFrame(draw);
 }
 draw();
@@ -120,6 +136,30 @@ function refresh() {
         updateInput(i);
     }
     refreshActive();
+    commitActive();
+}
+function normaliseColours(area) {
+    const globs = splitGraph(genGlobs(area));
+    for (const glob of globs) {
+        const pos = glob.nodes[Math.floor(Math.random() * glob.nodes.length)];
+        if (pos == undefined)
+            continue;
+        const sqr = area[fromPos(pos)];
+        if (sqr == undefined)
+            continue;
+        const fg = sqr.foreground;
+        for (const t of glob.nodes) {
+            const sqr = area[fromPos(t)];
+            if (sqr == undefined)
+                continue;
+            sqr.foreground = fg;
+        }
+    }
+}
+// Random
+function randomHue(s, l) {
+    return toColor(`hsl(${Math.floor(Math.random() * 360)},${s},${l})`)
+        ?? { red: 255, green: 0, blue: 0, alpha: 255 };
 }
 // IO
 function updateInput(elem) {
@@ -139,8 +179,9 @@ function updateInput(elem) {
 //IO
 function commitActive() {
     const a = global.active;
-    global.written.push(a.grid);
-    global.active.grid = {};
+    for (const i in a)
+        global.written[i] = a[i];
+    global.active = {};
 }
 //IO
 function drawGrid(ctx, a, r) {
@@ -163,7 +204,7 @@ function drawGrid(ctx, a, r) {
                 if (!cx && !cy)
                     fill &&= (rightSq ?? fullSq).down
                         && (downSq ?? fullSq).right;
-                ctx.fillStyle = fill ? sqr.foreground : sqr.background;
+                ctx.fillStyle = fromColor(fill ? sqr.foreground : sqr.background);
                 ctx.fillRect(xPos + (cx ? 0 : r.width), yPos + (cy ? 0 : r.height), cx ? r.width : r.gap, cy ? r.height : r.gap);
             }
     }
@@ -171,24 +212,32 @@ function drawGrid(ctx, a, r) {
 }
 //IO
 function refreshActive() {
+    const fg = toColor(param.foreground);
+    const bg = toColor(param.background);
+    if (fg == null)
+        alert("Invalid building colour");
+    if (bg == null)
+        alert("Invalid street colour");
+    if (fg == null || bg == null)
+        return;
     const grid = {};
-    if (Object.keys(global.active.grid).length == 0)
+    if (Object.keys(global.active).length == 0)
         for (const i of selected) {
             grid[fromPos({ x: i.x, y: i.y })] =
                 { down: wFlip(param.prob / 100),
                     right: wFlip(param.prob / 100),
-                    foreground: global.active.foreground,
-                    background: global.active.background
+                    foreground: fg,
+                    background: bg
                 };
             selected = [];
         }
     else
-        for (const i in global.active.grid)
+        for (const i in global.active)
             grid[i] =
                 { down: wFlip(param.prob / 100),
                     right: wFlip(param.prob / 100),
-                    foreground: global.active.foreground,
-                    background: global.active.background
+                    foreground: fg,
+                    background: bg
                 };
     for (const i in grid) {
         const pos = toPos(i);
@@ -199,11 +248,11 @@ function refreshActive() {
         if (grid[fromPos({ x: pos.x, y: pos.y + 1 })] == undefined)
             grid[i].down = false;
     }
-    global.active.grid = grid;
-    shrinkGlobs(param.globsz, global.active.grid);
+    global.active = grid;
+    shrinkGlobs(param.globsz, global.active);
     for (let i = 0; i < param.minsz; i++) {
-        const groups = genPathGroups(global.active.grid);
-        trimSuburbs(param.minsz, global.active.grid, groups);
+        const groups = genPathGroups(global.active);
+        trimSuburbs(param.minsz, global.active, groups);
     }
 }
 // IO
@@ -280,6 +329,33 @@ function insPath(p, area, pathGroups) {
 function findPathInGroups(p, pathGroups) {
     const reducer = (last, c) => last || pathEq(p, c);
     return pathGroups.filter(el => el.reduce(reducer, false));
+}
+function toColor(s) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    if (ctx == null)
+        return null;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = s;
+    ctx.fillRect(0, 0, 1, 1);
+    const data = ctx.getImageData(0, 0, 1, 1).data;
+    const red = data[0];
+    const green = data[1];
+    const blue = data[2];
+    const alpha = data[3];
+    if (red == undefined || green == undefined || blue == undefined || alpha == undefined)
+        return null;
+    return {
+        red: red,
+        green: green,
+        blue: blue,
+        alpha: alpha
+    };
+}
+function fromColor(c) {
+    return `rgba(${c.red},${c.green},${c.blue},${c.alpha / 255})`;
 }
 function pathEq(p, c) {
     return posEq(p.pos, c.pos) && c.down == p.down;

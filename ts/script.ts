@@ -5,7 +5,12 @@ interface Pos
   , y: number
   }
 
-type Color = string
+interface Color
+  { red: number
+  , green: number
+  , blue: number
+  , alpha: number
+  }
 
 type Equivalence<A> = (a:A, b:A) => boolean
 
@@ -20,6 +25,9 @@ interface AreaParameters
   { prob: number
   , minsz: number
   , globsz: number
+  , randCh: number
+  , foreground: string
+  , background: string
   }
 
 interface GridTile
@@ -41,6 +49,7 @@ type renderer = null | CanvasRenderingContext2D
 interface ClickPos
   { pos: Pos
   , shiftMod: boolean
+  , ctrlMod: boolean
   }
 
 interface RenderAttr
@@ -51,24 +60,16 @@ interface RenderAttr
   }
 
 interface Global
-  { written: Area[]
-  , active: 
-    { grid: Area
-    , foreground: Color
-    , background: Color
-    }
+  { written: Area
+  , active: Area
   , render: RenderAttr
   , mapname: string
   }
 
 // shared state
 const global: Global =
-  { written: []
-  , active:
-    { foreground: "green"
-    , background: "grey"
-    , grid: { }
-    }
+  { written: { }
+  , active: { }
   , render:
     { offset: {x: 0, y: 0}
     , width: 20
@@ -81,9 +82,10 @@ const param: AreaParameters =
   { prob: 20
   , minsz: 5
   , globsz: 5
+  , randCh: 3
+  , foreground: "brown"
+  , background: "grey"
   }
-const written: Array<Area> = []
-let globalSize = 40
 // @ts-ignore
 const canvas: HTMLCanvasElement = document.getElementById("main")
 const ctx = canvas.getContext('2d')
@@ -109,12 +111,6 @@ function main(): void {
   const updatable: HTMLInputElement[] = document.querySelectorAll("#controls > input")
   for(const i of updatable)
     i.addEventListener("change", updateInput.bind(null, i))
-  // @ts-ignore
-  const commitButton: null | HTMLButtonElement = document.getElementById("commit-active")
-  if(commitButton!= null) {
-    commitButton.addEventListener("click", commitActive)
-    commitButton.type = "button"
-  }
   canvas.addEventListener("mousedown", startClick)
   canvas.addEventListener("mouseup", endClick)
 }
@@ -129,13 +125,39 @@ function startClick(event: MouseEvent) {
         (event.clientX - target.getBoundingClientRect().x) / (render.width + render.gap))
   const y = Math.floor(
         (event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap))
+  if(event.ctrlKey) {
+    const col = toColor(param.foreground)
+    if(col == null) {
+      alert("Invalid color")
+      return
+    }
+    setColor({x: x, y: y}, global.written, col)
+  }
   clickPos =
     { pos: 
       { x: x
       , y: y
       }
     , shiftMod: event.shiftKey
+    , ctrlMod: event.ctrlKey
     }
+}
+
+// IO
+function setColor(pos: Pos, area: Area, color: Color) {
+  const globs = genGlobs(area)
+  const match: number[] = []
+  for(let i = 0; i < globs.nodes.length; i++) {
+    if(posEq(globs.nodes[i], pos))
+      match.push(i)
+  }
+  const change = subgraphWith(match, globs)
+  for(const p of change.nodes) {
+    const sqr = area[fromPos(p)]
+    if(sqr == undefined)
+      continue
+    sqr.foreground = color
+  }
 }
 
 /// IO
@@ -147,7 +169,7 @@ function endClick(event: MouseEvent) {
         (event.clientX - target.getBoundingClientRect().x) / (render.width + render.gap))
   const y = Math.floor(
         (event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap))
-  if(clickPos == null)
+  if(clickPos == null || clickPos.ctrlMod)
     return
   if(!clickPos.shiftMod)
     selected = []
@@ -166,11 +188,9 @@ function draw(): void {
   const render = global.render
   canvas.width = canvas.offsetWidth
   canvas.height = canvas.offsetHeight
-  for (const a of global.written) {
-    drawGrid(ctx, a, global.render)
-  }
+  drawGrid(ctx, global.written, global.render)
   ctx.globalAlpha = 0.7
-  drawGrid(ctx, global.active.grid, render)
+  drawGrid(ctx, global.active, render)
   ctx.globalAlpha = 0.3
   ctx.fillStyle = "blue"
   for(const pos of selected)
@@ -179,6 +199,7 @@ function draw(): void {
       , pos.y * (render.height + render.gap)
       , render.width + render.gap
       , render.height + render.gap)
+  ctx.globalAlpha = 1
   requestAnimationFrame(draw)
 }
 draw()
@@ -201,6 +222,32 @@ function refresh() {
     updateInput(i);
   }
   refreshActive()
+  commitActive()
+}
+
+function normaliseColours(area: Area) {
+  const globs: Graph<Pos>[] = splitGraph(genGlobs(area))
+  for(const glob of globs) {
+    const pos = glob.nodes[Math.floor(Math.random() * glob.nodes.length)]
+    if(pos == undefined)
+      continue
+    const sqr = area[fromPos(pos)]
+    if(sqr == undefined)
+      continue
+    const fg = sqr.foreground
+    for(const t of glob.nodes) {
+      const sqr = area[fromPos(t)]
+      if (sqr == undefined)
+        continue
+      sqr.foreground = fg
+    }
+  }
+}
+
+// Random
+function randomHue(s: number, l: number): Color {
+  return toColor(`hsl(${Math.floor(Math.random()*360)},${s},${l})`) 
+    ?? { red: 255, green: 0, blue: 0, alpha: 255 }
 }
 
 // IO
@@ -222,8 +269,9 @@ function updateInput(elem: HTMLInputElement) {
 //IO
 function commitActive() {
   const a = global.active
-  global.written.push(a.grid)
-  global.active.grid = { }
+  for(const i in a)
+    global.written[i] = a[i]
+  global.active = { }
 }
 
 //IO
@@ -245,7 +293,7 @@ function drawGrid(ctx: renderer, a: Area, r: RenderAttr) {
          if (!cx && !cy)
            fill &&= (rightSq ?? fullSq).down
                 &&  (downSq ?? fullSq).right
-         ctx.fillStyle = fill ? sqr.foreground : sqr.background
+         ctx.fillStyle = fromColor(fill ? sqr.foreground : sqr.background)
          ctx.fillRect
            ( xPos + (cx ? 0 : r.width)
            , yPos + (cy ? 0 : r.height)
@@ -259,24 +307,32 @@ function drawGrid(ctx: renderer, a: Area, r: RenderAttr) {
 
 //IO
 function refreshActive(): void {
+  const fg = toColor(param.foreground)
+  const bg = toColor(param.background)
+  if(fg == null)
+    alert("Invalid building colour")
+  if(bg == null)
+    alert("Invalid street colour")
+  if(fg == null || bg == null)
+    return
   const grid: { [key: string]: GridTile } = { }
-  if(Object.keys(global.active.grid).length == 0)
+  if(Object.keys(global.active).length == 0)
     for(const i of selected) {
       grid[fromPos({ x: i.x, y: i.y })] = 
         { down: wFlip(param.prob / 100)
         , right: wFlip(param.prob / 100) 
-        , foreground: global.active.foreground
-        , background: global.active.background
+        , foreground: fg
+        , background: bg
         }
       selected = []
     }
   else
-    for(const i in global.active.grid)
+    for(const i in global.active)
       grid[i] =
         { down: wFlip(param.prob / 100)
         , right: wFlip(param.prob / 100)
-        , foreground: global.active.foreground
-        , background: global.active.background
+        , foreground: fg
+        , background: bg
         }
   for(const i in grid) {
     const pos = toPos(i)
@@ -287,11 +343,11 @@ function refreshActive(): void {
     if(grid[fromPos({x: pos.x, y: pos.y + 1})] == undefined)
       grid[i].down = false
   }  
-  global.active.grid = grid
-  shrinkGlobs(param.globsz, global.active.grid)
+  global.active = grid
+  shrinkGlobs(param.globsz, global.active)
   for(let i = 0;  i < param.minsz; i++) {
-    const groups = genPathGroups(global.active.grid)
-    trimSuburbs(param.minsz, global.active.grid, groups)
+    const groups = genPathGroups(global.active)
+    trimSuburbs(param.minsz, global.active, groups)
   }
 }
 
@@ -379,6 +435,35 @@ function findPathInGroups(p: Path, pathGroups: Path[][]): Path[][] {
   return pathGroups.filter(el => 
     el.reduce(reducer, false)
   )
+}
+
+function toColor(s: string): null | Color {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1
+  canvas.height = 1
+  const ctx = canvas.getContext('2d')
+  if(ctx == null)
+    return null
+  ctx.globalAlpha = 1
+  ctx.fillStyle = s
+  ctx.fillRect(0, 0, 1, 1)
+  const data = ctx.getImageData(0,0,1,1).data
+  const red = data[0]
+  const green = data[1]
+  const blue = data[2]
+  const alpha = data[3]
+  if(red == undefined || green == undefined || blue == undefined || alpha == undefined)
+    return null
+  return { 
+      red: red
+    , green: green
+    , blue: blue
+    , alpha: alpha
+    }
+}
+
+function fromColor(c: Color): string {
+  return `rgba(${c.red},${c.green},${c.blue},${c.alpha/255})`
 }
 
 function pathEq(p: Path, c: Path): boolean {
