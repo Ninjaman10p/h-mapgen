@@ -62,10 +62,11 @@ interface RenderAttr
   }
 
 interface Global
-  { written: Area
+  { written: { [key: string]: Area }
   , active: Area
   , render: RenderAttr
   , mapname: string
+  , chunkSize: number
   }
 
 // shared state
@@ -79,6 +80,7 @@ const global: Global =
     , gap: 5
     }
   , mapname: "New Map"
+  , chunkSize: 16
   }
 const param: AreaParameters =
   { prob: 20
@@ -103,7 +105,7 @@ function main(): void {
   addButtonEventByID("add-cust-color", "click", addCustColor)
   addButtonEventByID("save-button", "click", save)
   addButtonEventByID("load-button", "click", load)
-  addButtonEventByID("export-button", "click", load)
+  addButtonEventByID("export-button", "click", exportMap)
   // @ts-ignore
   const updatable: HTMLInputElement[] = document.querySelectorAll("#controls input")
   for(const i of updatable)
@@ -141,7 +143,11 @@ function startClick(event: MouseEvent) {
       alert("Invalid color")
       return
     }
-    setColor({x: x, y: y}, global.written, col)
+    const chunk: Pos = { x: Math.floor(x/16), y: Math.floor(y/16) }
+    const clump = pairs([-1,0,1],[-1,0,1]).map((p: [number,number]) => {
+      return global.written[fromPos({x: chunk.x + p[0], y: chunk.y + p[1]})] ?? { }
+    })
+    setColor({x: x, y: y}, mergeChunks(clump), col)
   }
   clickPos =
     { pos: 
@@ -215,16 +221,28 @@ function setColor(pos: Pos, area: Area, color: Color) {
   }
 }
 
+function mergeChunks(chunks: Area[]): Area {
+  const merger: Area = { }
+  for(const chunk of chunks)
+    for(const i in chunk)
+      merger[i] = chunk[i]
+  return merger
+}
+
 // IO
 function exportMap() {
+  const render = global.render
+  const oldOffset = { x: global.render.offset.x, y: global.render.offset.y }
   const canvas = document.createElement("canvas")
-  draw(canvas)
-  const image = canvas.toDataURL("image/png")
-  const filename = `${global.mapname.replaceAll(/[^\w]/gi, "-")}.png`
-  const download = document.createElement("a");
-  download.href = image
-  download.download = filename
-  download.click()
+  const total = mergeChunks(Object.values(global.written))
+  const dims = getDimensions(total)
+  global.render.offset = { x: -dims[0].x, y: -dims[0].y }
+  canvas.width = (1 + Math.abs(dims[1].x - dims[0].x)) * (render.width + render.gap)
+  canvas.height = (1 + Math.abs(dims[1].y - dims[0].y)) * (render.height + render.gap)
+  draw(canvas, false)
+  const image = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream")
+  window.open(image, "_blank")
+  global.render.offset = oldOffset
 }
 
 // IO
@@ -261,17 +279,37 @@ function addCustColor() {
 }
 
 // repeated IO (shared)
-function draw(canvas: HTMLCanvasElement): void {
+function draw(canvas: HTMLCanvasElement, cont: boolean): void {
   const ctx = canvas.getContext("2d")
   if(ctx == undefined)
     return
   const render = global.render
-  canvas.width = canvas.offsetWidth
-  canvas.height = canvas.offsetHeight
+  if(canvas.offsetWidth != 0) {
+    canvas.width = canvas.offsetWidth
+    canvas.height = canvas.offsetHeight
+  }
+  ctx.globalAlpha = 1
+  ctx.fillStyle = "#dddddd"
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.translate(
       render.offset.x * (render.width + render.gap)
     , render.offset.y * (render.height + render.gap))
-  drawGrid(ctx, global.written, global.render)
+  const startChunk: Pos =
+    { x: Math.floor(-render.offset.x / 16)
+    , y: Math.floor(-render.offset.y / 16)
+    }
+  if(canvas.width != 800) {
+    console.log(canvas.width)
+  }
+  const endChunk: Pos =
+    { x: 2 + startChunk.x + Math.ceil(canvas.width / (global.chunkSize * render.width * render.gap))
+    , y: 2 + startChunk.y + Math.ceil(canvas.height / (global.chunkSize * render.height * render.gap))
+    }
+  for(let cx = startChunk.x; cx <= endChunk.x; cx++)
+    for(let cy = startChunk.y; cy <= endChunk.y; cy++) {
+      const cPos: Pos = {x: cx, y: cy}
+      drawGrid(ctx, global.written[fromPos(cPos)] ?? { }, render)
+    }
   ctx.globalAlpha = 0.7
   drawGrid(ctx, global.active, render)
   ctx.globalAlpha = 0.3
@@ -286,9 +324,10 @@ function draw(canvas: HTMLCanvasElement): void {
   ctx.translate(
       -render.offset.x * (render.width + render.gap)
     , -render.offset.y * (render.height + render.gap))
-  requestAnimationFrame(draw.bind(null, canvas))
+  if(cont)
+    requestAnimationFrame(draw.bind(null, canvas, true))
 }
-draw(canvas)
+draw(canvas,true)
 
 //IO
 function save() {
@@ -298,6 +337,27 @@ function save() {
   download.href = URL.createObjectURL(file)
   download.download = filename
   download.click()
+}
+
+function getDimensions(area: Area): [Pos, Pos] {
+  let min: null | Pos = null
+  let max: null | Pos = null
+  for(const i in area) {
+    const pos = toPos(i)
+    if(pos == null)
+      continue
+    if(min == null)
+      min = {x: pos.x, y: pos.y}
+    if(max == null)
+      max = {x: pos.x, y: pos.y}
+    min.x = Math.min(min.x, pos.x)
+    max.x = Math.max(max.x, pos.x)
+    min.y = Math.min(min.y, pos.y)
+    max.y = Math.max(max.y, pos.y)
+  }
+  if(min == null || max == null)
+    return [{x: 0, y: 0}, {x: 0, y: 0}]
+  return [min, max]
 }
 
 // IO from button
@@ -311,6 +371,7 @@ function refresh() {
   commitActive()
 }
 
+// IO
 function normaliseColours(area: Area) {
   const globs: Graph<Pos>[] = splitGraph(genGlobs(area))
   for(const glob of globs) {
@@ -392,20 +453,33 @@ function updateInput(elem: HTMLInputElement) {
 //IO
 function commitActive() {
   const a = global.active
-  for(const i in a)
-    global.written[i] = a[i]
+  for(const i in a) {
+    const pos = toPos(i)
+    if(pos == null)
+      continue
+    const chunk: Pos =
+      { x: Math.floor(pos.x / global.chunkSize)
+      , y: Math.floor(pos.y / global.chunkSize)
+      }
+    if(global.written[fromPos(chunk)] == undefined)
+      global.written[fromPos(chunk)] = { }
+    global.written[fromPos(chunk)][i] = a[i]
+  }
   global.active = { }
 }
 
 //IO
 function drawGrid(ctx: renderer, a: Area, r: RenderAttr) {
-  if (ctx == null) return;
+  const render = global.render
+  if (ctx == null)
+    return
   const prevFill = ctx.fillStyle
   const fullSq = { down: true, right: true }
   for(const key in a) {
     const sqr = a[key]
     const pos = toPos(key)
-    if (pos == null) continue;
+    if (pos == null)
+      continue;
     const xPos = pos.x * (r.width + r.gap)
     const yPos = pos.y * (r.height + r.gap)
     for (const cx of [true, false])
@@ -620,7 +694,7 @@ function transferEdges<A>(edges: Edge[], out: Graph<A>, g: Graph<A>, eq: Equival
 
 function pairs<A,B>(a: A[], b: B[]): [A,B][] {
   // @ts-ignore
-  return a.map(a1 => b.map(b1 => [a1, b1]))
+  return a.flatMap(a1 => b.map(b1 => [a1, b1]))
 }
 
 // broken graph -> graph
