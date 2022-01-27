@@ -102,12 +102,15 @@ function main(): void {
   addButtonEventByID("refresh-button", "click", refresh)
   addButtonEventByID("add-cust-color", "click", addCustColor)
   addButtonEventByID("save-button", "click", save)
+  addButtonEventByID("load-button", "click", load)
+  addButtonEventByID("export-button", "click", load)
   // @ts-ignore
   const updatable: HTMLInputElement[] = document.querySelectorAll("#controls input")
   for(const i of updatable)
     i.addEventListener("change", updateInput.bind(null, i))
   canvas.addEventListener("mousedown", startClick)
   canvas.addEventListener("mouseup", endClick)
+  canvas.addEventListener("mousemove", moveClick)
 }
 main();
 
@@ -128,8 +131,10 @@ function startClick(event: MouseEvent) {
   const render = global.render
   const x = Math.floor(
         (event.clientX - target.getBoundingClientRect().x) / (render.width + render.gap))
+        - global.render.offset.x
   const y = Math.floor(
         (event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap))
+        - global.render.offset.y
   if(event.ctrlKey) {
     const col = toColor(param.foreground)
     if(col == null) {
@@ -148,17 +153,40 @@ function startClick(event: MouseEvent) {
     }
 }
 
-/// IO
+// IO
+function moveClick(event: MouseEvent) {
+  if(clickPos == null)
+    return
+  //@ts-ignore
+  const target: HTMLElement = event.target
+  const render = global.render
+  const x = Math.floor(
+        (event.clientX - target.getBoundingClientRect().x) / (render.width + render.gap))
+        - global.render.offset.x
+  const y = Math.floor(
+        (event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap))
+        - global.render.offset.y
+  if(clickPos.shiftMod && clickPos.ctrlMod) {
+    global.render.offset.x += x - clickPos.pos.x
+    global.render.offset.y += y - clickPos.pos.y
+  }
+}
+
+// IO
 function endClick(event: MouseEvent) {
   //@ts-ignore
   const target: HTMLElement = event.target
   const render = global.render
   const x = Math.floor(
         (event.clientX - target.getBoundingClientRect().x) / (render.width + render.gap))
+        - global.render.offset.x
   const y = Math.floor(
         (event.clientY - target.getBoundingClientRect().y) / (render.height + render.gap))
-  if(clickPos == null || clickPos.ctrlMod)
+        - global.render.offset.y
+  if(clickPos == null || clickPos.ctrlMod) {
+    clickPos = null
     return
+  }
   if(!clickPos.shiftMod)
     selected = []
   for(let i = Math.min(clickPos.pos.x, x); i <= Math.max(clickPos.pos.x, x); i++)
@@ -167,6 +195,7 @@ function endClick(event: MouseEvent) {
       if(!clickPos.shiftMod || !selected.reduce(reducer, false))
         selected.push({ x: i, y: j })
     }
+  clickPos = null
 }
 
 // IO
@@ -184,6 +213,18 @@ function setColor(pos: Pos, area: Area, color: Color) {
       continue
     sqr.foreground = color
   }
+}
+
+// IO
+function exportMap() {
+  const canvas = document.createElement("canvas")
+  draw(canvas)
+  const image = canvas.toDataURL("image/png")
+  const filename = `${global.mapname.replaceAll(/[^\w]/gi, "-")}.png`
+  const download = document.createElement("a");
+  download.href = image
+  download.download = filename
+  download.click()
 }
 
 // IO
@@ -220,12 +261,16 @@ function addCustColor() {
 }
 
 // repeated IO (shared)
-function draw(): void {
+function draw(canvas: HTMLCanvasElement): void {
+  const ctx = canvas.getContext("2d")
   if(ctx == undefined)
     return
   const render = global.render
   canvas.width = canvas.offsetWidth
   canvas.height = canvas.offsetHeight
+  ctx.translate(
+      render.offset.x * (render.width + render.gap)
+    , render.offset.y * (render.height + render.gap))
   drawGrid(ctx, global.written, global.render)
   ctx.globalAlpha = 0.7
   drawGrid(ctx, global.active, render)
@@ -238,9 +283,12 @@ function draw(): void {
       , render.width + render.gap
       , render.height + render.gap)
   ctx.globalAlpha = 1
-  requestAnimationFrame(draw)
+  ctx.translate(
+      -render.offset.x * (render.width + render.gap)
+    , -render.offset.y * (render.height + render.gap))
+  requestAnimationFrame(draw.bind(null, canvas))
 }
-draw()
+draw(canvas)
 
 //IO
 function save() {
@@ -293,6 +341,30 @@ function applyCustColor(col: Color, prob: number, area: Area) {
       setColor(pos, area, col)
     }
   }
+}
+
+// IO
+function load() {
+  const loader = document.createElement("input")
+  loader.type = "file"
+  loader.addEventListener("change", () => {
+    if(loader.files == null)
+      return
+    const file = loader.files[0]
+    if(file == undefined)
+      return
+    const fr = new FileReader();
+    fr.onload = () => {
+      if(fr.result == undefined || fr.result instanceof ArrayBuffer)
+        return
+      const newGlobal = JSON.parse(fr.result)
+      for(const i in newGlobal)
+        // @ts-ignore
+        global[i] = newGlobal[i]
+    }
+    fr.readAsText(file)
+  })
+  loader.click()
 }
 
 // Random
