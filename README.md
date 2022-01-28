@@ -1,6 +1,8 @@
 # h-mapgen
 Original Author: Peter Gow
+
 Licence: GPLv3 or later
+
 Developer Contact: petergow@live.com.au
 
 ## Usage
