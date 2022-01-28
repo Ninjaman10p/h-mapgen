@@ -11,12 +11,12 @@
     "url": "git+https://github.com/Ninjaman10p/h-mapgen.git"
   },
   "author": "Peter Gow",
-  "license": "GPLv3",
+  "license": "GPLv3 or later",
   "bugs": {
     "url": "https://github.com/Ninjaman10p/h-mapgen/issues"
   },
   "homepage": "https://github.com/Ninjaman10p/h-mapgen#readme",
-  "dependencies": {
+  "devDependencies": {
     "typescript": "^4.5.5"
   }
 }

@@ -1,3 +1,13 @@
+/*
+This file is part of h-mapgen.
+
+h-mapgen is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+h-mapgen is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with h-mapgen. If not, see <https://www.gnu.org/licenses/>.
+*/
+
 "use strict"
 
 interface Pos
@@ -25,7 +35,6 @@ interface AreaParameters
   { prob: number
   , minsz: number
   , globsz: number
-  , randCh: number
   , foreground: string
   , background: string
   , colors: string[]
@@ -93,7 +102,6 @@ const param: AreaParameters =
   { prob: 20
   , minsz: 5
   , globsz: 5
-  , randCh: 3
   , foreground: "brown"
   , background: "grey"
   , colors: []
@@ -404,7 +412,7 @@ draw(canvas,true)
 
 //IO
 function save() {
-  const filename = `${global.mapname.replaceAll(/[^\w]/gi, "-")}.map.json`
+  const filename = `${global.mapname.replaceAll(/[^\w]/g, "-")}.map.json`
   const file = new File([JSON.stringify(global)], filename, { type: "text/JSON" })
   const download = document.createElement("a");
   download.href = URL.createObjectURL(file)
@@ -495,6 +503,9 @@ function load() {
       for(const i in newGlobal)
         // @ts-ignore
         global[i] = newGlobal[i]
+      // @ts-ignore
+      const mapname: HTMLInputElement = document.getElementsByName("gl.mapname")[0]
+      mapname.value = global.mapname
     }
     fr.readAsText(file)
   })
