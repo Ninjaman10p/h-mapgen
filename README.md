@@ -50,6 +50,7 @@ The program will run fine by opening "index.html"; however, if you want to store
 ### Linux/MacOS
 If you are on a system with shell scripts, then you can simply run `build.sh` *while in the main project folder*
 This will generate a file called `h-mapgen.html` which contains everything necessary to run the program
+Then, you need to find the regular expression /[^w]/ in the built file and replace it with /[^\w]/, due to a bug in the buld script.
 
 ### Windows/Other
 If you don't have access to a POSIX compliant shell, you can simply copy `index.html` to a file called `h-mapgen.html`, and then copy the contents of `js/script.js` between the `<script></script>` tags
