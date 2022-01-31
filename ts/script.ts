@@ -354,19 +354,24 @@ function draw(canvas: HTMLCanvasElement, cont: boolean): void {
   ctx.translate(
       render.offset.x * (render.width + render.gap)
     , render.offset.y * (render.height + render.gap))
-  const startChunk: Pos =
-    { x: Math.floor(-render.offset.x / 16)
-    , y: Math.floor(-render.offset.y / 16)
-    }
-  const endChunk: Pos =
-    { x: 2 + startChunk.x + Math.ceil(canvas.width / (global.chunkSize * render.width * render.gap))
-    , y: 2 + startChunk.y + Math.ceil(canvas.height / (global.chunkSize * render.height * render.gap))
-    }
-  for(let cx = startChunk.x; cx <= endChunk.x; cx++)
-    for(let cy = startChunk.y; cy <= endChunk.y; cy++) {
-      const cPos: Pos = {x: cx, y: cy}
-      drawGrid(ctx, global.written[fromPos(cPos)] ?? { }, render)
-    }
+  if(cont) {
+    const startChunk: Pos =
+      { x: Math.floor(-render.offset.x / 16)
+      , y: Math.floor(-render.offset.y / 16)
+      }
+    const endChunk: Pos =
+      { x: 2 + startChunk.x + Math.ceil(canvas.width / (global.chunkSize * render.width * render.gap))
+      , y: 2 + startChunk.y + Math.ceil(canvas.height / (global.chunkSize * render.height * render.gap))
+      }
+    for(let cx = startChunk.x; cx <= endChunk.x; cx++)
+      for(let cy = startChunk.y; cy <= endChunk.y; cy++) {
+        const cPos: Pos = {x: cx, y: cy}
+        drawGrid(ctx, global.written[fromPos(cPos)] ?? { }, render)
+      }
+  } else {
+    for(const chunk in global.written)
+      drawGrid(ctx, global.written[chunk] ?? { }, render)
+  }
   ctx.globalAlpha = 0.7
   drawGrid(ctx, global.active, render)
   ctx.globalAlpha = 0.3
