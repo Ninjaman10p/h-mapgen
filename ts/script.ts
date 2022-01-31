@@ -384,7 +384,7 @@ function draw(canvas: HTMLCanvasElement, cont: boolean): void {
   for(let i = 0; i < global.notes.length; i++) {
     const note = global.notes[i]
     ctx.globalAlpha = 0.4
-    ctx.fillStyle = "orange"
+    ctx.fillStyle = "white"
     ctx.beginPath()
     ctx.arc(
         (note.pos.x + render.offset.x) * (render.width + render.gap) + (render.width / 2)
