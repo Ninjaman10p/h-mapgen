@@ -1,8 +1,9 @@
 outfile=h-mapgen.html
 JS=script
+HTML=index.html
 
-$(outfile): js/$(JS).js index.html
-	csplit -f html-aux index.html '/<\/script>/'
+$(outfile): js/$(JS).js $(HTML)
+	csplit -f html-aux $(HTML) '/<\/script>/'
 	sed 's/<script */<script>/' html-aux00 > html-aux00.tmp
 	mv html-aux00.tmp html-aux00
 	cat html-aux00 js/script.js html-aux01 > $(outfile)
@@ -11,8 +12,12 @@ $(outfile): js/$(JS).js index.html
 js/$(JS).js: ts/$(JS).ts
 	npx tsc
 
+tags: ts/$(JS).ts $(HTML)
+	ctags ts/$(JS).ts $(HTML)
+
 .PHONY: clean
 clean:
 	rm -f html-aux*
 	rm -f js/$(JS).js
 	rm -f $(outfile)
+	rm -f tags
