@@ -45,12 +45,14 @@ so for 100% change set probability to 10000)
 * "Export (PNG)" will export the current map as a PNG file
 
 ## Building
-The program will run fine by opening "index.html"; however, if you want to store it as a standalone html file, you can do this by moving the javascript to be embedded
+The program will run fine by opening "index.html"; however, if you want to store it as a standalone html file, you can do this by following the instructions below
+to embed the JavaScript file
 
 ### Linux/MacOS
-If you are on a system with shell scripts, then you can simply run `build.sh` *while in the main project folder*
-This will generate a file called `h-mapgen.html` which contains everything necessary to run the program
-Then, you need to find the regular expression /[^w]/ in the built file and replace it with /[^\w]/, due to a bug in the buld script.
+If you are on a system with GNU Make installed, run the following command while in the project directory:
+```
+$ make h-mapgen.html
+```
 
 ### Windows/Other
-If you don't have access to a POSIX compliant shell, you can simply copy `index.html` to a file called `h-mapgen.html`, and then copy the contents of `js/script.js` between the `<script></script>` tags
+If you don't have access to a POSIX compliant shell, copy `index.html` to a file called `h-mapgen.html`, and then copy the contents of `js/script.js` between the `<script></script>` tags
