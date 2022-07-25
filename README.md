@@ -50,7 +50,7 @@ to embed the JavaScript file
 
 ### Linux/MacOS
 If you are on a system with GNU Make installed, run the following command while in the project directory:
-```
+```bash
 $ make h-mapgen.html
 ```
 
