@@ -137,7 +137,7 @@ function initInputs(): void {
     if (container == null) return;
     const inputs = [
         makeNewInput("gl.mapname", "name", "New Map", "text"),
-        makeNewInput("g.foreground", "building color", "text", "#4D2D23"),
+        makeNewInput("g.foreground", "building color", "#4D2D23", "text"),
         makeNewInput("g.background", "street color", "#656872", "text"),
         makeNewInput("r.gap", "street width", "5", "number"),
         makeNewInput("r.width", "block width", "20", "number"),
