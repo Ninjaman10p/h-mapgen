@@ -128,13 +128,37 @@ label {
 .color-input {
     text-shadow: 1px 1px black;   
 }
+
+.tooltip {
+    display: inline-block;   
+    font-size: 13px;
+    cursor: pointer;
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    z-index: 1;
+}
+
+div:has(> #main) {
+    position: relative;
+    display: inline-block;   
+    width: var(--canvas-size);
+    height: var(--canvas-size);
+}
 </style>
 
 </head>
 <body>
 
 <main>
-    <canvas id="main"></canvas>
+    <div>
+        <canvas id="main"></canvas>
+        <div class="tooltip" title="drag: select region
+ctrl+lclick: change building color
+ctrl+shift+drag: move map
+rclick: view annotation
+shift+rclick: create/modify annotation">?</div>
+    </div>
     <form id="controls">
         <table id="inputs"></table>
         <button id="generate-button">Generate</button>
