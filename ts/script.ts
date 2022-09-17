@@ -1,11 +1,17 @@
 /*
 This file is part of h-mapgen.
 
-h-mapgen is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+h-mapgen is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
 
-h-mapgen is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+h-mapgen is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with h-mapgen. If not, see <https://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License along with
+h-mapgen. If not, see <https://www.gnu.org/licenses/>.
 */
 
 "use strict";
@@ -113,8 +119,8 @@ let clickPos: null | ClickPos = null;
 // IO (shared)
 function main(): void {
     initInputs();
-    refresh();
-    addButtonEventByID("refresh-button", "click", refresh);
+    generate();
+    addButtonEventByID("generate-button", "click", generate);
     addButtonEventByID("add-cust-color", "click", addCustColor);
     addButtonEventByID("save-button", "click", save);
     addButtonEventByID("load-button", "click", load);
@@ -137,8 +143,8 @@ function initInputs(): void {
     if (container == null) return;
     const inputs = [
         makeNewInput("gl.mapname", "name", "New Map", "text"),
-        makeNewInput("g.foreground", "building color", "#4D2D23", "text"),
-        makeNewInput("g.background", "street color", "#656872", "text"),
+        makeNewInput("g.foreground", "building color", "#4D2D23", "text", true),
+        makeNewInput("g.background", "street color", "#656872", "text", true),
         makeNewInput("r.gap", "street width", "5", "number"),
         makeNewInput("r.width", "block width", "20", "number"),
         makeNewInput("r.height", "block height", "20", "number"),
@@ -342,7 +348,8 @@ function makeNewInput(
     inputName: string,
     labelText: string,
     defaultVal: string = "1",
-    inputType: string = "number"
+    inputType: string = "number",
+    isColor: boolean = false
 ): HTMLTableRowElement {
     const row = document.createElement("tr");
 
@@ -358,6 +365,9 @@ function makeNewInput(
     input.value = defaultVal;
     input.type = inputType;
     input.addEventListener("change", updateInput.bind(null, input));
+    if (isColor) input.classList.add("color-input");
+    
+    updateInput(input)
 
     const input_td = document.createElement("td");
     input_td.appendChild(input);
@@ -380,14 +390,15 @@ function addCustColor() {
         `g.colors.${currentCount}`,
         `colour ${currentCount}`,
         "#434D23",
-        "text"
+        "text",
+        true
     );
     // Keep track of how many custom colours we have
     input1.classList.add("cust-color-val");
     const input2 = makeNewInput(
         `g.colorprobs.${currentCount}`,
         "probability (&pertenk;)",
-        "1"
+        "25"
     );
 
     container.appendChild(input1);
@@ -487,7 +498,7 @@ function draw(canvas: HTMLCanvasElement, cont: boolean): void {
 }
 draw(canvas, true);
 
-//IO
+// IO
 function save() {
     const filename = `${global.mapname.replaceAll(/[^\w]/g, "-")}.map.json`;
     const file = new File([JSON.stringify(global)], filename, {
@@ -521,14 +532,14 @@ function getDimensions(area: Area): [Pos, Pos] {
 }
 
 // IO from button
-function refresh() {
+function generate() {
     // @ts-ignore
     const fields: HTMLInputElement[] =
         document.querySelectorAll("#controls input");
     for (const i of fields) {
         updateInput(i);
     }
-    refreshActive();
+    generateActive();
     commitActive();
 }
 
@@ -611,9 +622,13 @@ function updateInput(elem: HTMLInputElement) {
     }
     // @ts-ignore
     current[target[0]] = val;
+    // If this has errors then I want the default js behaviour anyways
+    if (elem.classList.contains("color-input"))
+        // @ts-ignore
+        elem.style.backgroundColor = val;
 }
 
-//IO
+// IO
 function commitActive() {
     const a = global.active;
     for (const i in a) {
@@ -630,7 +645,7 @@ function commitActive() {
     global.active = {};
 }
 
-//IO
+// IO
 function drawGrid(ctx: renderer, a: Area, r: RenderAttr) {
     const render = global.render;
     if (ctx == null) return;
@@ -664,8 +679,8 @@ function drawGrid(ctx: renderer, a: Area, r: RenderAttr) {
     ctx.fillStyle = prevFill;
 }
 
-//IO
-function refreshActive(): void {
+// IO
+function generateActive(): void {
     const fg = toColor(param.foreground);
     const bg = toColor(param.background);
     if (fg == null) alert("Invalid building colour");
