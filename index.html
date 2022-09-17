@@ -18,6 +18,26 @@ You should have received a copy of the GNU General Public License along with h-m
     --highlight: #22242A;
     --main-background: #292F42;
     --border-radius: 2px;
+    --canvas-size: 800px;
+}
+
+@media only screen and (min-width: 1400px) {
+    :root main {
+        width: max-content;   
+    }
+    
+    :root #main {
+        display: inline-block;   
+        vertical-align: bottom;
+    }
+    
+    :root #controls {
+        display: inline-block;
+        padding-left: 15px;
+        vertical-align: bottom;
+        max-height: var(--canvas-size);
+        overflow-y: auto;
+    }
 }
 
 * {
@@ -45,8 +65,8 @@ main {
     resize: both;
     background-color: var(--highlight);
     border-radius: var(--border-radius);
-    width: 800px;
-    height: 800px;
+    width: var(--canvas-size);
+    height: var(--canvas-size);
 }
 
 #controls, #controls > span {
@@ -103,6 +123,10 @@ label {
 
 #controls:has(button:hover) button:not(:hover) {
     opacity: .4;
+}
+
+.color-input {
+    text-shadow: 1px 1px black;   
 }
 </style>
 
