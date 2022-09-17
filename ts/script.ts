@@ -145,7 +145,7 @@ function initInputs(): void {
         makeNewInput("gl.mapname", "name", "New Map", "text"),
         makeNewInput("g.foreground", "building color", "#4D2D23", "text", true),
         makeNewInput("g.background", "street color", "#656872", "text", true),
-        makeNewInput("r.gap", "street width", "5", "number"),
+        makeNewInput("r.gap", "street width", "1", "number"),
         makeNewInput("r.width", "block width", "20", "number"),
         makeNewInput("r.height", "block height", "20", "number"),
         makeNewInput("g.prob", "globbing (%)", "40", "number"),
@@ -188,7 +188,7 @@ function startClick(event: MouseEvent) {
                 (render.height + render.gap)
         ) - global.render.offset.y;
     if (event.button == 0) {
-        if (event.ctrlKey) {
+        if (event.ctrlKey && !event.shiftKey) {
             const col = toColor(param.foreground);
             if (col == null) {
                 alert("Invalid color");
