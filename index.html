@@ -13,10 +13,15 @@ You should have received a copy of the GNU General Public License along with h-m
 
 <title>City Map Generator (h-mapgen)</title>
 <style>
-* {
-    color: #ECEEF3;   
+:root {
+    --text: #ECEEF3;
     --highlight: #22242A;
     --main-background: #292F42;
+    --border-radius: 2px;
+}
+
+* {
+    color: var(--text);
 }
 
 body {
@@ -27,6 +32,7 @@ body {
 
 main {
     background-color: var(--main-background);
+    /* border-radius: var(--border-radius); */
     width: min-content;
     padding: 20px;
     display: block;
@@ -38,6 +44,7 @@ main {
     display: block;
     resize: both;
     background-color: var(--highlight);
+    border-radius: var(--border-radius);
     width: 800px;
     height: 800px;
 }
@@ -58,16 +65,21 @@ label {
 #controls {
     display: block;   
     margin: auto;
+    margin-top: 10px;
 }
 
-#controls:has(input:focus) label:not(:has(+ input:focus)) {
+#inputs td {
+    padding-top: 5px;   
+}
+
+#inputs:has(input:focus) tr:not(:has(input:focus)) label {
     opacity: 0.4;
 }
 
 #controls input {
     background: none;
     border: none;   
-    border-left: 2px solid black;
+    border-left: 2px solid var(--highlight);
 }
 
 #controls label {
@@ -77,10 +89,20 @@ label {
 }
 
 #controls button {
-    background-color: var(--main-background);
-    display: block;
+    background-color: var(--highlight);
+    padding: 10px;
+    margin: 5px;
+    border-radius: var(--border-radius);
+    margin-top: 15px;
+    display: inline-block;
     margin-left: auto;
     margin-right: 20px;
+    border: none;
+    transition: 350ms opacity linear;
+}
+
+#controls:has(button:hover) button:not(:hover) {
+    opacity: .4;
 }
 </style>
 
@@ -90,33 +112,8 @@ label {
 <main>
     <canvas id="main"></canvas>
     <form id="controls">
-        <label for="gl.mapname">name</label>
-        <input name="gl.mapname" value="New Map"/>
-        <br/> 
-        <label for="g.foreground">building color</label>
-        <input name="g.foreground" value="brown"/>
-        <br/>
-        <label for="g.background">street color</label>
-        <input name="g.background" value="grey"/>
-        <br/>
-        <label for="r.gap">street width</label>
-        <input type="number" name="r.gap" value="5"/>
-        <br/>
-        <label for="r.width">block width</label>
-        <input type="number" name="r.width" value="20"/>
-        <br/>
-        <label for="r.height">block height</label>
-        <input type="number" name="r.height" value="20"/>
-        <br/>
-        <label for="g.prob">globbing (%)</label>
-        <input type="number" name="g.prob" value="40"/>
-        <br/>
-        <label for="g.globst">maximum glob size</label>
-        <input type="number" name="g.globsz" value="5"/>
-        <br/>
-        <label for="g.minsz">minimum suburb size</label>
-        <input type="number" name="g.masz" value="4"/>
-        <br/>
+        <table id="inputs">
+        </table>
         <span id="cust-colors"></span>
         <button id="add-cust-color">Add Color</button>
         <button id="refresh-button">Generate</button>

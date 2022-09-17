@@ -6,7 +6,8 @@ Licence: GPLv3 or later
 Developer Contact: petergow@live.com.au
 
 ## Usage
-To use, open index.html in the distributed folder. The webpage should have a grey canvas and a list of settings
+To use, open index.html in the distributed folder. The webpage should have a dark blue
+canvas and a list of settings
 
 ### Canvas Controls
 * lmb (drag): select an area
@@ -55,4 +56,6 @@ $ make h-mapgen.html
 ```
 
 ### Windows/Other
-If you don't have access to a POSIX compliant shell, copy `index.html` to a file called `h-mapgen.html`, and then copy the contents of `js/script.js` between the `<script></script>` tags
+If you don't have access to a POSIX compliant shell,
+copy `index.html` to a file called `h-mapgen.html`,
+and then copy the contents of `js/script.js` between the `<script></script>` tags
