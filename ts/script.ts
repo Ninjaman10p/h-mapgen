@@ -382,6 +382,8 @@ function addCustColor() {
         "red",
         "text"
     );
+    // Keep track of how many custom colours we have
+    input1.classList.add("cust-color-val");
     const input2 = makeNewInput(
         `g.colorprobs.${currentCount}`,
         "probability (&pertenk;)",
