@@ -305,7 +305,7 @@ function endClick(event: MouseEvent) {
 
 // IO
 function setColor(pos: Pos, area: Area, color: Color) {
-    const globs = genGlobs(area);
+    const globs = toGraph(area);
     const match: number[] = [];
     for (let i = 0; i < globs.nodes.length; i++) {
         if (posEq(globs.nodes[i], pos)) match.push(i);
@@ -545,14 +545,14 @@ function generate() {
 
 // IO
 function normaliseColours(area: Area) {
-    const globs: Graph<Pos>[] = splitGraph(genGlobs(area));
-    for (const glob of globs) {
-        const pos = glob.nodes[Math.floor(Math.random() * glob.nodes.length)];
+    const components: Graph<Pos>[] = getComponents(toGraph(area));
+    for (const component of components) {
+        const pos = component.nodes[Math.floor(Math.random() * component.nodes.length)];
         if (pos == undefined) continue;
         const sqr = area[fromPos(pos)];
         if (sqr == undefined) continue;
         const fg = sqr.foreground;
-        for (const t of glob.nodes) {
+        for (const t of component.nodes) {
             const sqr = area[fromPos(t)];
             if (sqr == undefined) continue;
             sqr.foreground = fg;
@@ -562,7 +562,7 @@ function normaliseColours(area: Area) {
 
 // IO
 function applyCustColor(col: Color, prob: number, area: Area) {
-    const globs = splitGraph(genGlobs(area));
+    const globs = getComponents(toGraph(area));
     for (const glob of globs) {
         if (Math.random() * 10000 < prob) {
             const pos = glob.nodes[0];
@@ -714,7 +714,7 @@ function generateActive(): void {
             grid[i].down = false;
     }
     global.active = grid;
-    shrinkGlobs(param.globsz, global.active);
+    shrinkComponents(param.globsz, global.active);
     for (let i = 0; i < param.minsz; i++) {
         const groups = genPathGroups(global.active);
         trimSuburbs(param.minsz, global.active, groups);
@@ -738,10 +738,10 @@ function trimSuburbs(num: number, area: Area, pathGroups: Path[][]): void {
 }
 
 // IO
-function shrinkGlobs(size: number, area: Area): void {
-    let globs: Graph<Pos>[] = splitGraph(genGlobs(area));
-    while (globs.length > 0) {
-        globs = globs
+function shrinkComponents(size: number, area: Area): void {
+    let components: Graph<Pos>[] = getComponents(toGraph(area));
+    while (components.length > 0) {
+        components = components
             .filter((g) => g.nodes.length > size)
             .flatMap((glob) => {
                 const bridges = getBridges(glob);
@@ -769,7 +769,7 @@ function splitGlob(
     if (n == undefined || t == undefined || rem == null) return [];
     if (rem.down) t.down = false;
     else t.right = false;
-    return splitGraph({
+    return getComponents({
         nodes: glob.nodes,
         edges: [...glob.edges.slice(0, n), ...glob.edges.slice(n + 1)],
     });
@@ -921,7 +921,7 @@ function getBridgePointers<A>(graph: Graph<A>): number[] {
         });
 }
 
-function splitGraph<A>(graph: Graph<A>): Graph<A>[] {
+function getComponents<A>(graph: Graph<A>): Graph<A>[] {
     const removed: number[] = [];
     const out: number[][] = [];
     while (removed.length < graph.nodes.length) {
@@ -1020,7 +1020,7 @@ function preimage<A, B>(f: [A, B][], b: B): A[] {
     return f.flatMap((p) => (p[1] == b ? p[0] : []));
 }
 
-function genGlobs(area: Area): Graph<Pos> {
+function toGraph(area: Area): Graph<Pos> {
     const graph: Graph<Pos> = { nodes: [], edges: [] };
     for (const key in area) {
         const pos = toPos(key);
@@ -1035,11 +1035,6 @@ function genGlobs(area: Area): Graph<Pos> {
         graph.nodes.push(pos);
     }
     return graph;
-}
-
-function inGlob(pos: Pos, glob: Graph<Pos>): boolean {
-    const reducer = (last: boolean, next: Pos) => last || posEq(next, pos);
-    return glob.nodes.reduce(reducer, false);
 }
 
 function buildAdj(a: [Pos, GridTile], b: [Pos, GridTile]): boolean {
