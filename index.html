@@ -13,79 +13,118 @@ You should have received a copy of the GNU General Public License along with h-m
 
 <title>City Map Generator (h-mapgen)</title>
 <style>
+* {
+    color: #ECEEF3;   
+    --highlight: #22242A;
+    --main-background: #292F42;
+}
+
 body {
-  font-family: sans-serif;
-  user-select: none;
+    font-family: sans-serif;
+    user-select: none;
+    background-color: var(--highlight);
+}
+
+main {
+    background-color: var(--main-background);
+    width: min-content;
+    padding: 20px;
+    display: block;
+    margin: auto;
 }
 
 #main {
-  resize: both;
-  background-color: #dddddd;
-  width: 800px;
-  height: 800px;
+    margin: auto;
+    display: block;
+    resize: both;
+    background-color: var(--highlight);
+    width: 800px;
+    height: 800px;
 }
 
 #controls, #controls > span {
-  display: inline-block;
-  width: max-content;
+    display: inline-block;
+    width: max-content;
 }
 
 #controls > span label {
-  margin-right: 3px
+    margin-right: 3px
+}
+
+label {
+    transition: 350ms opacity linear;
+}
+
+#controls {
+    display: block;   
+    margin: auto;
+}
+
+#controls:has(input:focus) label:not(:has(+ input:focus)) {
+    opacity: 0.4;
+}
+
+#controls input {
+    background: none;
+    border: none;   
+    border-left: 2px solid black;
 }
 
 #controls label {
-  min-width: 200px;
-  display: inline-block;
-  text-align: right;
+    min-width: 200px;
+    display: inline-block;
+    text-align: right;
 }
 
 #controls button {
-  display: block;
-  margin-left: auto;
-  margin-right: 20px;
+    background-color: var(--main-background);
+    display: block;
+    margin-left: auto;
+    margin-right: 20px;
 }
 </style>
 
 </head>
 <body>
 
-<canvas id="main"></canvas>
-<form id="controls">
-  <label for="gl.mapname">name</label>
-  <input name="gl.mapname" value="New Map"/>
-  <br/> 
-  <label for="g.foreground">building color</label>
-  <input name="g.foreground" value="brown"/>
-  <br/>
-  <label for="g.background">street color</label>
-  <input name="g.background" value="grey"/>
-  <br/>
-  <label for="r.gap">street width</label>
-  <input type="number" name="r.gap" value="5"/>
-  <br/>
-  <label for="r.width">block width</label>
-  <input type="number" name="r.width" value="20"/>
-  <br/>
-  <label for="r.height">block height</label>
-  <input type="number" name="r.height" value="20"/>
-  <br/>
-  <label for="g.prob">globbing (%)</label>
-  <input type="number" name="g.prob" value="40"/>
-  <br/>
-  <label for="g.globst">maximum glob size</label>
-  <input type="number" name="g.globsz" value="5"/>
-  <br/>
-  <label for="g.minsz">minimum suburb size</label>
-  <input type="number" name="g.masz" value="4"/>
-  <br/>
-  <span id="cust-colors"></span>
-  <button id="add-cust-color">Add Color</button>
-  <button id="refresh-button">Generate</button>
-  <button id="save-button">Save</button>
-  <button id="load-button">Load</button>
-  <button id="export-button">Export (PNG)</button>
-</form>
+<main>
+    <canvas id="main"></canvas>
+    <form id="controls">
+        <label for="gl.mapname">name</label>
+        <input name="gl.mapname" value="New Map"/>
+        <br/> 
+        <label for="g.foreground">building color</label>
+        <input name="g.foreground" value="brown"/>
+        <br/>
+        <label for="g.background">street color</label>
+        <input name="g.background" value="grey"/>
+        <br/>
+        <label for="r.gap">street width</label>
+        <input type="number" name="r.gap" value="5"/>
+        <br/>
+        <label for="r.width">block width</label>
+        <input type="number" name="r.width" value="20"/>
+        <br/>
+        <label for="r.height">block height</label>
+        <input type="number" name="r.height" value="20"/>
+        <br/>
+        <label for="g.prob">globbing (%)</label>
+        <input type="number" name="g.prob" value="40"/>
+        <br/>
+        <label for="g.globst">maximum glob size</label>
+        <input type="number" name="g.globsz" value="5"/>
+        <br/>
+        <label for="g.minsz">minimum suburb size</label>
+        <input type="number" name="g.masz" value="4"/>
+        <br/>
+        <span id="cust-colors"></span>
+        <button id="add-cust-color">Add Color</button>
+        <button id="refresh-button">Generate</button>
+        <button id="save-button">Save</button>
+        <button id="load-button">Load</button>
+        <button id="export-button">Export (PNG)</button>
+    </form>
+</main>
 <!-- JavaScript -->
 <script src="js/script.js">
 </script>

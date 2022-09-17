@@ -349,8 +349,7 @@ function draw(canvas: HTMLCanvasElement, cont: boolean): void {
     canvas.height = canvas.offsetHeight
   }
   ctx.globalAlpha = 1
-  ctx.fillStyle = "#dddddd"
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
   ctx.translate(
       render.offset.x * (render.width + render.gap)
     , render.offset.y * (render.height + render.gap))
