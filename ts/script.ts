@@ -379,7 +379,7 @@ function addCustColor() {
     const input1 = makeNewInput(
         `g.colors.${currentCount}`,
         `colour ${currentCount}`,
-        "red",
+        "#434D23",
         "text"
     );
     // Keep track of how many custom colours we have
