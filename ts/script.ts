@@ -66,6 +66,7 @@ interface Graph<A> {
 type renderer = null | CanvasRenderingContext2D;
 
 interface ClickPos {
+    button: "space" | "mouse1" | "mouse2";
     pos: Pos;
     shiftMod: boolean;
     ctrlMod: boolean;
@@ -87,7 +88,7 @@ interface Global {
     written: { [key: string]: Area };
     notes: Annotation[];
     active: Area;
-    render: RenderAttr;
+    renderSettings: RenderAttr;
     mapname: string;
     chunkSize: number;
 }
@@ -96,7 +97,7 @@ interface Global {
 const global: Global = {
     written: {},
     active: {},
-    render: { offset: { x: 0, y: 0 }, width: 20, height: 20, gap: 5 },
+    renderSettings: { offset: { x: 0, y: 0 }, width: 20, height: 20, gap: 5 },
     mapname: "New Map",
     chunkSize: 16,
     notes: [],
@@ -114,7 +115,6 @@ const param: AreaParameters = {
 const canvas: HTMLCanvasElement = document.getElementById("main");
 const ctx = canvas.getContext("2d");
 let selected: Pos[] = [];
-let clickPos: null | ClickPos = null;
 
 // IO (shared)
 function main(): void {
@@ -130,10 +130,7 @@ function main(): void {
         document.querySelectorAll("#controls input");
     for (const i of updatable)
         i.addEventListener("change", updateInput.bind(null, i));
-    canvas.addEventListener("mousedown", startClick);
-    canvas.addEventListener("mouseup", endClick);
-    canvas.addEventListener("mousemove", moveClick);
-    canvas.addEventListener("contextmenu", preventEvent);
+    bindClickHandler(canvas);
 }
 main();
 
@@ -172,135 +169,135 @@ function preventEvent(event: Event) {
     return false;
 }
 
-// IO
-function startClick(event: MouseEvent) {
-    //@ts-ignore
-    const target: HTMLElement = event.target;
-    const render = global.render;
-    const x =
-        Math.floor(
-            (event.clientX - target.getBoundingClientRect().x) /
-                (render.width + render.gap)
-        ) - global.render.offset.x;
-    const y =
-        Math.floor(
-            (event.clientY - target.getBoundingClientRect().y) /
-                (render.height + render.gap)
-        ) - global.render.offset.y;
-    if (event.button == 0) {
-        if (event.ctrlKey && !event.shiftKey) {
-            const col = toColor(param.foreground);
-            if (col == null) {
-                alert("Invalid color");
-                return;
-            }
-            const chunk: Pos = { x: Math.floor(x / 16), y: Math.floor(y / 16) };
-            const clump = pairs([-1, 0, 1], [-1, 0, 1]).map(
-                (p: [number, number]) => {
-                    return (
-                        global.written[
-                            fromPos({ x: chunk.x + p[0], y: chunk.y + p[1] })
-                        ] ?? {}
-                    );
+function bindClickHandler(target: HTMLCanvasElement): void {
+    let clickPos: null | ClickPos = null;
+
+    const startClick = (event: MouseEvent) => {
+        //@ts-ignore
+        const render = global.renderSettings;
+        const { x, y } = getMousePosition(event, target);
+        if (event.button == 0) {
+            if (event.ctrlKey && !event.shiftKey) {
+                const col = toColor(param.foreground);
+                if (col == null) {
+                    alert("Invalid color");
+                    return;
                 }
-            );
-            setColor({ x: x, y: y }, mergeChunks(clump), col);
-        }
-        clickPos = {
-            pos: { x: x, y: y },
-            shiftMod: event.shiftKey,
-            ctrlMod: event.ctrlKey,
-        };
-    } else if (event.button == 2) {
-        if (event.shiftKey) {
-            const toEdit: number[] = [];
-            for (let i = 0; i < global.notes.length; i++) {
-                const note = global.notes[i];
-                if (posEq(note.pos, { x: x, y: y })) {
-                    toEdit.push(i);
-                }
+                const chunk: Pos = {
+                    x: Math.floor(x / 16),
+                    y: Math.floor(y / 16),
+                };
+                const clump = pairs([-1, 0, 1], [-1, 0, 1]).map(
+                    (p: [number, number]) => {
+                        return (
+                            global.written[
+                                fromPos({
+                                    x: chunk.x + p[0],
+                                    y: chunk.y + p[1],
+                                })
+                            ] ?? {}
+                        );
+                    }
+                );
+                setColor({ x: x, y: y }, mergeChunks(clump), col);
             }
-            if (toEdit.length > 0)
-                for (const i of toEdit) {
+            clickPos = {
+                button: "mouse1",
+                pos: { x: x, y: y },
+                shiftMod: event.shiftKey,
+                ctrlMod: event.ctrlKey,
+            };
+        } else if (event.button == 2) {
+            if (event.shiftKey) {
+                const toEdit: number[] = [];
+                for (let i = 0; i < global.notes.length; i++) {
                     const note = global.notes[i];
-                    const edit = prompt("Edit annotation", note.contents);
-                    if (edit == null) return;
-                    else if (edit == "") global.notes.splice(i, 1);
-                    else note.contents = edit;
+                    if (posEq(note.pos, { x: x, y: y })) {
+                        toEdit.push(i);
+                    }
                 }
-            else {
-                const annotation = prompt("Enter annotation");
-                if (annotation == null) return;
-                global.notes.push({
-                    pos: { x: x, y: y },
-                    contents: annotation,
-                });
+                if (toEdit.length > 0)
+                    for (const i of toEdit) {
+                        const note = global.notes[i];
+                        const edit = prompt("Edit annotation", note.contents);
+                        if (edit == null) return;
+                        else if (edit == "") global.notes.splice(i, 1);
+                        else note.contents = edit;
+                    }
+                else {
+                    const annotation = prompt("Enter annotation");
+                    if (annotation == null) return;
+                    global.notes.push({
+                        pos: { x: x, y: y },
+                        contents: annotation,
+                    });
+                }
+            } else {
+                for (const note of global.notes)
+                    if (posEq(note.pos, { x: x, y: y })) alert(note.contents);
             }
-        } else {
-            for (const note of global.notes)
-                if (posEq(note.pos, { x: x, y: y })) alert(note.contents);
         }
-    }
-}
-
-// IO
-function moveClick(event: MouseEvent) {
-    if (clickPos == null) return;
-    //@ts-ignore
-    const target: HTMLElement = event.target;
-    const render = global.render;
-    const x =
-        Math.floor(
-            (event.clientX - target.getBoundingClientRect().x) /
-                (render.width + render.gap)
-        ) - global.render.offset.x;
-    const y =
-        Math.floor(
-            (event.clientY - target.getBoundingClientRect().y) /
-                (render.height + render.gap)
-        ) - global.render.offset.y;
-    if (clickPos.shiftMod && clickPos.ctrlMod) {
-        global.render.offset.x += x - clickPos.pos.x;
-        global.render.offset.y += y - clickPos.pos.y;
-    }
-}
-
-// IO
-function endClick(event: MouseEvent) {
-    //@ts-ignore
-    const target: HTMLElement = event.target;
-    const render = global.render;
-    const x =
-        Math.floor(
-            (event.clientX - target.getBoundingClientRect().x) /
-                (render.width + render.gap)
-        ) - global.render.offset.x;
-    const y =
-        Math.floor(
-            (event.clientY - target.getBoundingClientRect().y) /
-                (render.height + render.gap)
-        ) - global.render.offset.y;
-    if (clickPos == null || clickPos.ctrlMod) {
-        clickPos = null;
-        return;
-    }
-    if (!clickPos.shiftMod) selected = [];
-    for (
-        let i = Math.min(clickPos.pos.x, x);
-        i <= Math.max(clickPos.pos.x, x);
-        i++
-    )
-        for (
-            let j = Math.min(clickPos.pos.y, y);
-            j <= Math.max(clickPos.pos.y, y);
-            j++
+    };
+    const moveClick = (event: MouseEvent) => {
+        if (clickPos == null) return;
+        const render = global.renderSettings;
+        const { x, y } = getMousePosition(event, target);
+        if (
+            clickPos.shiftMod &&
+            clickPos.ctrlMod &&
+            clickPos.button == "mouse1"
         ) {
-            const reducer = (last: boolean, current: Pos) =>
-                last || (current.x == i && current.y == j);
-            if (!clickPos.shiftMod || !selected.reduce(reducer, false))
-                selected.push({ x: i, y: j });
+            global.renderSettings.offset.x += x - clickPos.pos.x;
+            global.renderSettings.offset.y += y - clickPos.pos.y;
         }
-    clickPos = null;
+    };
+    const endClick = (event: MouseEvent) => {
+        const render = global.renderSettings;
+        const { x, y } = getMousePosition(event, target);
+        try {
+            if (clickPos == null || clickPos.ctrlMod) return;
+            if (!clickPos.shiftMod) selected = [];
+            for (
+                let i = Math.min(clickPos.pos.x, x);
+                i <= Math.max(clickPos.pos.x, x);
+                i++
+            )
+                for (
+                    let j = Math.min(clickPos.pos.y, y);
+                    j <= Math.max(clickPos.pos.y, y);
+                    j++
+                ) {
+                    const reducer = (last: boolean, current: Pos) =>
+                        last || (current.x == i && current.y == j);
+                    if (!clickPos.shiftMod || !selected.reduce(reducer, false))
+                        selected.push({ x: i, y: j });
+                }
+        } finally {
+            clickPos = null;
+        }
+    };
+    target.addEventListener("mousedown", startClick);
+    target.addEventListener("mousemove", moveClick);
+    target.addEventListener("mouseup", endClick);
+    canvas.addEventListener("contextmenu", preventEvent);
+}
+
+function getMousePosition(
+    event: MouseEvent,
+    target: HTMLElement
+): { x: number; y: number } {
+    return {
+        x:
+            Math.floor(
+                (event.clientX - target.getBoundingClientRect().x) /
+                    (global.renderSettings.width + global.renderSettings.gap)
+            ) - global.renderSettings.offset.x,
+        y:
+            Math.floor(
+                (event.clientY - target.getBoundingClientRect().y) /
+                    (global.renderSettings.height + global.renderSettings.gap)
+            ) - global.renderSettings.offset.y,
+    };
 }
 
 // IO
@@ -326,12 +323,15 @@ function mergeChunks(chunks: Area[]): Area {
 
 // IO
 function exportMap() {
-    const render = global.render;
-    const oldOffset = { x: global.render.offset.x, y: global.render.offset.y };
+    const render = global.renderSettings;
+    const oldOffset = {
+        x: global.renderSettings.offset.x,
+        y: global.renderSettings.offset.y,
+    };
     const canvas = document.createElement("canvas");
     const total = mergeChunks(Object.values(global.written));
     const dims = getDimensions(total);
-    global.render.offset = { x: -dims[0].x, y: -dims[0].y };
+    global.renderSettings.offset = { x: -dims[0].x, y: -dims[0].y };
     canvas.width =
         (1 + Math.abs(dims[1].x - dims[0].x)) * (render.width + render.gap);
     canvas.height =
@@ -341,7 +341,7 @@ function exportMap() {
         .toDataURL("image/png")
         .replace("image/png", "image/octet-stream");
     window.open(image, "_blank");
-    global.render.offset = oldOffset;
+    global.renderSettings.offset = oldOffset;
 }
 
 function makeNewInput(
@@ -366,8 +366,8 @@ function makeNewInput(
     input.type = inputType;
     input.addEventListener("change", updateInput.bind(null, input));
     if (isColor) input.classList.add("color-input");
-    
-    updateInput(input)
+
+    updateInput(input);
 
     const input_td = document.createElement("td");
     input_td.appendChild(input);
@@ -409,7 +409,7 @@ function addCustColor() {
 function draw(canvas: HTMLCanvasElement, cont: boolean): void {
     const ctx = canvas.getContext("2d");
     if (ctx == undefined) return;
-    const render = global.render;
+    const render = global.renderSettings;
     if (canvas.offsetWidth != 0) {
         canvas.width = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
@@ -547,7 +547,8 @@ function generate() {
 function normaliseColours(area: Area) {
     const components: Graph<Pos>[] = getComponents(toGraph(area));
     for (const component of components) {
-        const pos = component.nodes[Math.floor(Math.random() * component.nodes.length)];
+        const pos =
+            component.nodes[Math.floor(Math.random() * component.nodes.length)];
         if (pos == undefined) continue;
         const sqr = area[fromPos(pos)];
         if (sqr == undefined) continue;
@@ -613,7 +614,12 @@ function randomHue(s: number, l: number): Color {
 function updateInput(elem: HTMLInputElement) {
     const val = (elem.type == "number" ? parseInt : id)(elem.value);
     const target: Array<string> = elem.name.split(".");
-    let current = { a: global.active, r: global.render, g: param, gl: global };
+    let current = {
+        a: global.active,
+        r: global.renderSettings,
+        g: param,
+        gl: global,
+    };
     while (target.length > 1) {
         const move = target.shift();
         if (move == undefined) return;
@@ -647,7 +653,7 @@ function commitActive() {
 
 // IO
 function drawGrid(ctx: renderer, a: Area, r: RenderAttr) {
-    const render = global.render;
+    const render = global.renderSettings;
     if (ctx == null) return;
     const prevFill = ctx.fillStyle;
     const fullSq = { down: true, right: true };
