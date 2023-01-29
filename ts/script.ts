@@ -65,13 +65,6 @@ interface Graph<A> {
 
 type renderer = null | CanvasRenderingContext2D;
 
-interface ClickPos {
-    button: "space" | "mouse1" | "mouse2";
-    pos: Pos;
-    shiftMod: boolean;
-    ctrlMod: boolean;
-}
-
 interface RenderAttr {
     offset: Pos;
     width: number;
@@ -170,14 +163,69 @@ function preventEvent(event: Event) {
 }
 
 function bindClickHandler(target: HTMLCanvasElement): void {
-    let clickPos: null | ClickPos = null;
+    enum ActionType {
+        SELECT,
+        UNION_SELECT,
+        CHANGE_COLOR,
+        MOVE,
+        VIEW_ANNOTATION,
+        SET_ANNOTATION,
+    }
+    interface ClickPos {
+        clicked: true;
+        action: ActionType;
+        preselected: Pos[];
+        pos: Pos;
+    }
+    interface MouseUpPos {
+        clicked: false;
+        pos: Pos;
+    }
+
+    let clickPos: MouseUpPos | ClickPos = {
+        clicked: false,
+        pos: { x: 0, y: 0 },
+    };
+
+    let pressingSpace = false;
+    document.addEventListener("keydown", (event) => {
+        if (event.key == " ") {
+            console.log("space down");
+            pressingSpace = true;
+        }
+    });
+    document.addEventListener("keyup", (event) => {
+        if (event.key == " ") {
+            pressingSpace = false;
+        }
+    });
 
     const startClick = (event: MouseEvent) => {
-        //@ts-ignore
-        const render = global.renderSettings;
-        const { x, y } = getMousePosition(event, target);
+        const { x, y } = getMousePosition(event, target, global.renderSettings);
+        let action = null;
         if (event.button == 0) {
-            if (event.ctrlKey && !event.shiftKey) {
+            if (event.ctrlKey) {
+                if (event.shiftKey) action = ActionType.MOVE;
+                else action = ActionType.CHANGE_COLOR;
+            } else {
+                if (event.shiftKey) action = ActionType.UNION_SELECT;
+                else {
+                    if (pressingSpace) action = ActionType.MOVE;
+                    else action = ActionType.SELECT;
+                }
+            }
+        } else if (event.button == 1) {
+            action = ActionType.MOVE;
+        } else if (event.button == 2) {
+            if (event.shiftKey) action = ActionType.SET_ANNOTATION;
+            else action = ActionType.VIEW_ANNOTATION;
+        }
+        if (action == null) return;
+        switch (action) {
+            case ActionType.SELECT:
+                selected = [];
+                break;
+            case ActionType.CHANGE_COLOR:
                 const col = toColor(param.foreground);
                 if (col == null) {
                     alert("Invalid color");
@@ -200,15 +248,8 @@ function bindClickHandler(target: HTMLCanvasElement): void {
                     }
                 );
                 setColor({ x: x, y: y }, mergeChunks(clump), col);
-            }
-            clickPos = {
-                button: "mouse1",
-                pos: { x: x, y: y },
-                shiftMod: event.shiftKey,
-                ctrlMod: event.ctrlKey,
-            };
-        } else if (event.button == 2) {
-            if (event.shiftKey) {
+                break;
+            case ActionType.SET_ANNOTATION:
                 const toEdit: number[] = [];
                 for (let i = 0; i < global.notes.length; i++) {
                     const note = global.notes[i];
@@ -232,49 +273,63 @@ function bindClickHandler(target: HTMLCanvasElement): void {
                         contents: annotation,
                     });
                 }
-            } else {
+                break;
+            case ActionType.VIEW_ANNOTATION:
                 for (const note of global.notes)
                     if (posEq(note.pos, { x: x, y: y })) alert(note.contents);
-            }
         }
+        clickPos = {
+            action: action,
+            clicked: true,
+            pos: { x: x, y: y },
+            preselected: [...selected],
+        };
     };
     const moveClick = (event: MouseEvent) => {
-        if (clickPos == null) return;
-        const render = global.renderSettings;
-        const { x, y } = getMousePosition(event, target);
-        if (
-            clickPos.shiftMod &&
-            clickPos.ctrlMod &&
-            clickPos.button == "mouse1"
-        ) {
-            global.renderSettings.offset.x += x - clickPos.pos.x;
-            global.renderSettings.offset.y += y - clickPos.pos.y;
+        if (clickPos.clicked) {
+            const { x, y } = getMousePosition(
+                event,
+                target,
+                global.renderSettings
+            );
+            switch (clickPos.action) {
+                case ActionType.MOVE:
+                    global.renderSettings.offset.x += x - clickPos.pos.x;
+                    global.renderSettings.offset.y += y - clickPos.pos.y;
+                    break;
+                case ActionType.SELECT:
+                case ActionType.UNION_SELECT:
+                    selected = makeBox(
+                        clickPos.pos,
+                        { x: x, y: y },
+                        clickPos.preselected
+                    );
+                    break;
+            }
+        } else {
+            clickPos = {
+                clicked: false,
+                pos: getMousePosition(event, target, global.renderSettings),
+            };
         }
     };
     const endClick = (event: MouseEvent) => {
-        const render = global.renderSettings;
-        const { x, y } = getMousePosition(event, target);
-        try {
-            if (clickPos == null || clickPos.ctrlMod) return;
-            if (!clickPos.shiftMod) selected = [];
-            for (
-                let i = Math.min(clickPos.pos.x, x);
-                i <= Math.max(clickPos.pos.x, x);
-                i++
-            )
-                for (
-                    let j = Math.min(clickPos.pos.y, y);
-                    j <= Math.max(clickPos.pos.y, y);
-                    j++
-                ) {
-                    const reducer = (last: boolean, current: Pos) =>
-                        last || (current.x == i && current.y == j);
-                    if (!clickPos.shiftMod || !selected.reduce(reducer, false))
-                        selected.push({ x: i, y: j });
-                }
-        } finally {
-            clickPos = null;
-        }
+        const { x, y } = getMousePosition(event, target, global.renderSettings);
+        if (clickPos.clicked)
+            switch (clickPos.action) {
+                case ActionType.SELECT:
+                case ActionType.UNION_SELECT:
+                    selected = makeBox(
+                        clickPos.pos,
+                        { x: x, y: y },
+                        clickPos.preselected
+                    );
+                    break;
+            }
+        clickPos = {
+            clicked: false,
+            pos: getMousePosition(event, target, global.renderSettings),
+        };
     };
     target.addEventListener("mousedown", startClick);
     target.addEventListener("mousemove", moveClick);
@@ -282,21 +337,37 @@ function bindClickHandler(target: HTMLCanvasElement): void {
     canvas.addEventListener("contextmenu", preventEvent);
 }
 
+function makeBox(pos1: Pos, pos2: Pos, existing?: Pos[]): Pos[] {
+    existing = existing ?? [];
+    const box = [...existing];
+    for (let i = Math.min(pos1.x, pos2.x); i <= Math.max(pos1.x, pos2.x); i++)
+        for (
+            let j = Math.min(pos1.y, pos2.y);
+            j <= Math.max(pos1.y, pos2.y);
+            j++
+        ) {
+            if (!existing.some(({ x, y }) => i == x && j == y))
+                box.push({ x: i, y: j });
+        }
+    return box;
+}
+
 function getMousePosition(
     event: MouseEvent,
-    target: HTMLElement
+    target: HTMLElement,
+    renderSettings: RenderAttr
 ): { x: number; y: number } {
     return {
         x:
             Math.floor(
                 (event.clientX - target.getBoundingClientRect().x) /
-                    (global.renderSettings.width + global.renderSettings.gap)
-            ) - global.renderSettings.offset.x,
+                    (renderSettings.width + renderSettings.gap)
+            ) - renderSettings.offset.x,
         y:
             Math.floor(
                 (event.clientY - target.getBoundingClientRect().y) /
-                    (global.renderSettings.height + global.renderSettings.gap)
-            ) - global.renderSettings.offset.y,
+                    (renderSettings.height + renderSettings.gap)
+            ) - renderSettings.offset.y,
     };
 }
 

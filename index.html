@@ -6,199 +6,200 @@ h-mapgen is free software: you can redistribute it and/or modify it under the te
 h-mapgen is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with h-mapgen. If not, see <https://www.gnu.org/licenses/>.
---> 
+-->
 <!DOCTYPE html>
 <html lang="en">
-<head>
+    <head>
+        <title>City Map Generator (h-mapgen)</title>
+        <style>
+            :root {
+                --text: #eceef3;
+                --highlight: #22242a;
+                --main-background: #292f42;
+                --border-radius: 2px;
+                --canvas-size: 800px;
+            }
 
-<title>City Map Generator (h-mapgen)</title>
-<style>
-:root {
-    --text: #ECEEF3;
-    --highlight: #22242A;
-    --main-background: #292F42;
-    --border-radius: 2px;
-    --canvas-size: 800px;
-}
+            @media only screen and (min-width: 1400px) {
+                :root main {
+                    width: max-content;
+                }
 
-@media only screen and (min-width: 1400px) {
-    :root main {
-        width: max-content;   
-    }
-    
-    :root #main {
-        display: inline-block;   
-        vertical-align: bottom;
-    }
-    
-    :root #controls {
-        display: inline-block;
-        padding-left: 15px;
-        vertical-align: bottom;
-        max-height: var(--canvas-size);
-        overflow-y: auto;
-    }
-}
+                :root #main {
+                    display: inline-block;
+                    vertical-align: bottom;
+                }
 
-* {
-    color: var(--text);
-}
+                :root #controls {
+                    display: inline-block;
+                    padding-left: 15px;
+                    vertical-align: bottom;
+                    max-height: var(--canvas-size);
+                    overflow-y: auto;
+                }
+            }
 
-body {
-    font-family: sans-serif;
-    user-select: none;
-    background-color: var(--highlight);
-}
+            * {
+                color: var(--text);
+            }
 
-main {
-    background-color: var(--main-background);
-    /* border-radius: var(--border-radius); */
-    width: min-content;
-    padding: 20px;
-    display: block;
-    margin: auto;
-}
+            body {
+                font-family: sans-serif;
+                user-select: none;
+                background-color: var(--highlight);
+            }
 
-#main {
-    margin: auto;
-    display: block;
-    resize: both;
-    background-color: var(--highlight);
-    border-radius: var(--border-radius);
-    width: var(--canvas-size);
-    height: var(--canvas-size);
-}
+            main {
+                background-color: var(--main-background);
+                /* border-radius: var(--border-radius); */
+                width: min-content;
+                padding: 20px;
+                display: block;
+                margin: auto;
+            }
 
-#controls, #controls > span {
-    display: inline-block;
-    width: max-content;
-}
+            #main {
+                margin: auto;
+                display: block;
+                resize: both;
+                background-color: var(--highlight);
+                border-radius: var(--border-radius);
+                width: var(--canvas-size);
+                height: var(--canvas-size);
+            }
 
-#controls > span label {
-    margin-right: 3px
-}
+            #controls,
+            #controls > span {
+                display: inline-block;
+                width: max-content;
+            }
 
-label {
-    transition: 350ms opacity linear;
-}
+            #controls > span label {
+                margin-right: 3px;
+            }
 
-#controls {
-    display: block;   
-    margin: auto;
-    margin-top: 10px;
-}
+            label {
+                transition: 350ms opacity linear;
+            }
 
-#inputs {
-    border-spacing: 0;   
-}
+            #controls {
+                display: block;
+                margin: auto;
+                margin-top: 10px;
+            }
 
-tr {
-    margin: 0px;   
-    padding: 0px;
-}
+            #inputs {
+                border-spacing: 0;
+            }
 
-#inputs td {
-    padding-top: 5px;   
-    margin: 0px;
-}
+            tr {
+                margin: 0px;
+                padding: 0px;
+            }
 
-#inputs:has(input:focus) tr:not(:has(input:focus)) label {
-    opacity: 0.4;
-}
+            #inputs td {
+                padding-top: 5px;
+                margin: 0px;
+            }
 
-#inputs td:has(label) {
-    padding-right: 5px;
-}
+            #inputs:has(input:focus) tr:not(:has(input:focus)) label {
+                opacity: 0.4;
+            }
 
-#inputs td:has(input) {
-    padding-left: 0px;
-    border-left: 2px solid var(--highlight);   
-}
+            #inputs td:has(label) {
+                padding-right: 5px;
+            }
 
-#inputs tr:first-of-type td {
-    padding-top: 2px;
-}
+            #inputs td:has(input) {
+                padding-left: 0px;
+                border-left: 2px solid var(--highlight);
+            }
 
-#inputs tr:not(:has(+ *)) td {
-    padding-bottom: 2px;   
-}
+            #inputs tr:first-of-type td {
+                padding-top: 2px;
+            }
 
-#inputs input {
-    background: none;
-    border: none;   
-}
+            #inputs tr:not(:has(+ *)) td {
+                padding-bottom: 2px;
+            }
 
-#inputs input.color-input {
-    text-shadow: 1px 1px black;   
-    border-radius: 0 var(--border-radius) var(--border-radius) 0;
-}
+            #inputs input {
+                background: none;
+                border: none;
+            }
 
-#controls label {
-    min-width: 200px;
-    display: inline-block;
-    text-align: right;
-}
+            #inputs input.color-input {
+                text-shadow: 1px 1px black;
+                border-radius: 0 var(--border-radius) var(--border-radius) 0;
+            }
 
-#controls button {
-    background-color: var(--highlight);
-    padding: 10px;
-    margin: 5px;
-    border-radius: var(--border-radius);
-    margin-top: 15px;
-    display: inline-block;
-    margin-left: auto;
-    margin-right: 20px;
-    border: none;
-    transition: 350ms opacity linear;
-}
+            #controls label {
+                min-width: 200px;
+                display: inline-block;
+                text-align: right;
+            }
 
-#controls:has(button:hover) button:not(:hover) {
-    opacity: .4;
-}
+            #controls button {
+                background-color: var(--highlight);
+                padding: 10px;
+                margin: 5px;
+                border-radius: var(--border-radius);
+                margin-top: 15px;
+                display: inline-block;
+                margin-left: auto;
+                margin-right: 20px;
+                border: none;
+                transition: 350ms opacity linear;
+            }
 
-.tooltip {
-    display: inline-block;   
-    font-size: 13px;
-    cursor: pointer;
-    position: absolute;
-    right: 5px;
-    top: 5px;
-    z-index: 1;
-}
+            #controls:has(button:hover) button:not(:hover) {
+                opacity: 0.4;
+            }
 
-div:has(> #main) {
-    position: relative;
-    display: inline-block;   
-    width: var(--canvas-size);
-    height: var(--canvas-size);
-}
-</style>
+            .tooltip {
+                display: inline-block;
+                font-size: 13px;
+                cursor: pointer;
+                position: absolute;
+                right: 5px;
+                top: 5px;
+                z-index: 1;
+            }
 
-</head>
-<body>
-
-<main>
-    <div>
-        <canvas id="main"></canvas>
-        <div class="tooltip" title="drag: select region
+            div:has(> #main) {
+                position: relative;
+                display: inline-block;
+                width: var(--canvas-size);
+                height: var(--canvas-size);
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <div>
+                <canvas id="main"></canvas>
+                <div
+                    class="tooltip"
+                    title="drag: select region
 shift+drag: add to selection
 ctrl+lclick: change building color
-ctrl+shift+drag: move map
+ctrl+shift+drag, space+drag, middle-drag: move map
 rclick: view annotation
-shift+rclick: create/modify annotation">?</div>
-    </div>
-    <form id="controls">
-        <table id="inputs"></table>
-        <button id="generate-button">Generate</button>
-        <button id="add-cust-color">Add Color</button>
-        <button id="save-button">Save</button>
-        <button id="load-button">Load</button>
-        <button id="export-button">Export (PNG)</button>
-    </form>
-</main>
-<!-- JavaScript -->
-<script src="js/script.js">
-</script>
-
-</body>
+shift+rclick: create/modify annotation"
+                >
+                    ?
+                </div>
+            </div>
+            <form id="controls">
+                <table id="inputs"></table>
+                <button id="generate-button">Generate</button>
+                <button id="add-cust-color">Add Color</button>
+                <button id="save-button">Save</button>
+                <button id="load-button">Load</button>
+                <button id="export-button">Export (PNG)</button>
+            </form>
+        </main>
+        <!-- JavaScript -->
+        <script src="js/script.js"></script>
+    </body>
 </html>
